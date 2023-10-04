@@ -870,6 +870,7 @@ public:
         this->get_parameter_or<vector<double>>("mapping.extrinsic_R", extrinR, vector<double>());
 
         RCLCPP_INFO(this->get_logger(), "p_pre->lidar_type %d", p_pre->lidar_type);
+        RCLCPP_INFO(this->get_logger(), "p_pre->feature_enabled %d",p_pre->feature_enabled);
 
         path.header.stamp = this->get_clock()->now();
         path.header.frame_id ="camera_init";
