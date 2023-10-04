@@ -1,6 +1,7 @@
 /**:
     ros__parameters:
         map_file_path: "./test.pcd"
+        feature_extract_enable: true
         common:
             lid_topic:  "/livox/lidar"
             imu_topic:  "/livox/imu"
@@ -33,7 +34,7 @@
             effect_map_en: false         # true: publish Effects
             map_en: true                 # true: publish Map cloud
             scan_publish_en:  true       # false: close all the point cloud output
-            dense_publish_en: false      # false: low down the points number in a global-frame point clouds scan.
+            dense_publish_en: true      # false: low down the points number in a global-frame point clouds scan.
             scan_bodyframe_pub_en: true  # true: output the point cloud scans in IMU-body-frame
 
         pcd_save:
