@@ -408,6 +408,7 @@ void standard_pcl_cbk(const sensor_msgs::msg::PointCloud2::UniquePtr msg)
     scan_count++;
     double cur_time = get_time_sec(msg->header.stamp);
     double preprocess_start_time = omp_get_wtime();         // 可以理解为当前时间戳
+    
     if (!is_first_lidar && cur_time < last_timestamp_lidar) // 检测激光时间戳是否异常
     {
         std::cerr << "lidar loop back, clear buffer" << std::endl;

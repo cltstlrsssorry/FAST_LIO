@@ -5,49 +5,52 @@
 #define RETURN0 0x00
 #define RETURN0AND1 0x10
 
+/* 初始化列表方式初始化 */
 Preprocess::Preprocess() : feature_enabled(0), lidar_type(AVIA), blind(0.01), point_filter_num(1)
 {
-  inf_bound = 10;
-  N_SCANS = 6;
-  SCAN_RATE = 10;
-  group_size = 8;
-  disA = 0.01;
-  disA = 0.1; // B?
-  p2l_ratio = 225;
-  limit_maxmid = 6.25;
-  limit_midmin = 6.25;
-  limit_maxmin = 3.24;
+  inf_bound = 10;      // 有效点集合,大于10m则是盲区
+  N_SCANS = 6;         // 多线激光雷达的线数
+  SCAN_RATE = 10;      // 帧率
+  group_size = 8;      // 8个点为一组
+  disA = 0.01;         // 点集合的距离阈值,判断是否为平面
+  disA = 0.1;          // B?  // 点集合的距离阈值,判断是否为平面
+  p2l_ratio = 225;     // 点到线的距离阈值，需要大于这个值才能判断组成面
+  limit_maxmid = 6.25; // 中点到左侧的距离变化率范围
+  limit_midmin = 6.25; // 中点到右侧的距离变化率范围
+  limit_maxmin = 3.24; // 左侧到右侧的距离变化率范围
   jump_up_limit = 170.0;
   jump_down_limit = 8.0;
   cos160 = 160.0;
-  edgea = 2;
-  edgeb = 0.1;
+  edgea = 2;   // 点与点距离超过两倍则认为遮挡
+  edgeb = 0.1; // 点与点距离超过0.1m则认为遮挡
   smallp_intersect = 172.5;
-  smallp_ratio = 1.2;
-  given_offset_time = false;
+  smallp_ratio = 1.2;        // 三个点如果角度大于172.5度，且比例小于1.2倍，则认为是平面
+  given_offset_time = false; // 是否提供时间偏移
 
-  jump_up_limit = cos(jump_up_limit / 180 * M_PI);
-  jump_down_limit = cos(jump_down_limit / 180 * M_PI);
-  cos160 = cos(cos160 / 180 * M_PI);
-  smallp_intersect = cos(smallp_intersect / 180 * M_PI);
+  jump_up_limit = cos(jump_up_limit / 180 * M_PI);       // 角度大于170度的点跳过，认为在
+  jump_down_limit = cos(jump_down_limit / 180 * M_PI);   // 角度小于8度的点跳过
+  cos160 = cos(cos160 / 180 * M_PI);                     // 夹角限制
+  smallp_intersect = cos(smallp_intersect / 180 * M_PI); // 三个点如果角度大于172.5度，且比例小于1.2倍，则认为是平面
 }
 
+/* 析构函数*/
 Preprocess::~Preprocess()
 {
 }
 
 void Preprocess::set(bool feat_en, int lid_type, double bld, int pfilt_num)
 {
-  feature_enabled = feat_en;
-  lidar_type = lid_type;
-  blind = bld;
-  point_filter_num = pfilt_num;
+  feature_enabled = feat_en;    // 是否提取特征点
+  lidar_type = lid_type;        // 雷达的种类
+  blind = bld;                  // 最小距离阈值，即过滤掉0～blind范围内的点云
+  point_filter_num = pfilt_num; // 采样间隔，即每隔point_filter_num个点取1个点
 }
 
 void Preprocess::process(const livox_ros_driver2::msg::CustomMsg::UniquePtr &msg, PointCloudXYZI::Ptr &pcl_out)
 {
+  cout << "------avia_handler------" << endl;
   avia_handler(msg);
-  *pcl_out = pl_surf;
+  *pcl_out = pl_surf; // 输出处理后的点云数据，格式为pcl::PointCloud<pcl::PointXYZINormal>
 }
 
 void Preprocess::process(const sensor_msgs::msg::PointCloud2::UniquePtr &msg, PointCloudXYZI::Ptr &pcl_out)
@@ -94,13 +97,14 @@ void Preprocess::process(const sensor_msgs::msg::PointCloud2::UniquePtr &msg, Po
 
 void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr &msg)
 {
-  pl_surf.clear();
-  pl_corn.clear();
-  pl_full.clear();
-  double t1 = omp_get_wtime();
-  int plsize = msg->point_num;
-  // cout<<"plsie: "<<plsize<<endl;
+  pl_surf.clear();             // 清除之前的平面点云缓存
+  pl_corn.clear();             // 清除之前的角点云缓存
+  pl_full.clear();             // 清除之前的全点云缓存
+  double t1 = omp_get_wtime(); // 后面没用到
+  int plsize = msg->point_num; // 一帧中的点云总个数
+  cout << "plsie: " << plsize << endl;
 
+  // 分配空间
   pl_corn.reserve(plsize);
   pl_surf.reserve(plsize);
   pl_full.resize(plsize);
@@ -108,63 +112,77 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
   for (int i = 0; i < N_SCANS; i++)
   {
     pl_buff[i].clear();
-    pl_buff[i].reserve(plsize);
+    pl_buff[i].reserve(plsize); // 每一个scan保存的点云数量
   }
-  uint valid_num = 0;
+  uint valid_num = 0; // 有效的点云数
 
-  if (feature_enabled)
+  if (feature_enabled) // 特征提取（FastLIO2默认不进行特征提取）
   {
-    for (uint i = 1; i < plsize; i++)
+    for (uint i = 1; i < plsize; i++) // 分别对每个点云进行处理
     {
-      if ((msg->points[i].line < N_SCANS) &&
-          ((msg->points[i].tag & 0x30) == 0x10 || (msg->points[i].tag & 0x30) == 0x00))
+      if ((msg->points[i].line < N_SCANS) && ((msg->points[i].tag & 0x30) == 0x10 || (msg->points[i].tag & 0x30) == 0x00))// 只取线数在0~N_SCANS内并且回波次序为0或者1的点云
       {
-        pl_full[i].x = msg->points[i].x;
-        pl_full[i].y = msg->points[i].y;
-        pl_full[i].z = msg->points[i].z;
-        pl_full[i].intensity = msg->points[i].reflectivity;
-        pl_full[i].curvature =
-            msg->points[i].offset_time / float(1000000); // use curvature as time of each laser points
+        pl_full[i].x = msg->points[i].x;                    // 点云x轴坐标
+        pl_full[i].y = msg->points[i].y;                    // 点云y轴坐标
+        pl_full[i].z = msg->points[i].z;                    // 点云z轴坐标
+        pl_full[i].intensity = msg->points[i].reflectivity; // 点云强度
+        pl_full[i].curvature = msg->points[i].offset_time / float(1000000);    // use curvature as time of each laser points
+        // 使用曲率作为每个激光点的时间
 
-        bool is_new = false;
+        bool is_new = false; // 只有当当前点和上一点的间距足够大（>1e-7），才将当前点认为是有用的点，分别加入到对应line的pl_buff队列中
         if ((abs(pl_full[i].x - pl_full[i - 1].x) > 1e-7) || (abs(pl_full[i].y - pl_full[i - 1].y) > 1e-7) ||
             (abs(pl_full[i].z - pl_full[i - 1].z) > 1e-7))
         {
-          pl_buff[msg->points[i].line].push_back(pl_full[i]);
+          pl_buff[msg->points[i].line].push_back(pl_full[i]); // 将当前点加入到对应line的pl_buff队列中
         }
       }
     }
+
     static int count = 0;
     static double time = 0.0;
     count++;
     double t0 = omp_get_wtime();
-    for (int j = 0; j < N_SCANS; j++)
+    for (int j = 0; j < N_SCANS; j++) // 对每个line中的激光雷达分别进行处理
     {
+      // 如果该line中的点云过小，则继续处理下一条line。首先判断点云数量是否太小,如果小于5个点则跳过处理。
       if (pl_buff[j].size() <= 5)
         continue;
-      pcl::PointCloud<PointType> &pl = pl_buff[j];
-      plsize = pl.size();
-      vector<orgtype> &types = typess[j];
+      pcl::PointCloud<PointType> &pl = pl_buff[j]; // 获取当前scan line的点云pl。
+      plsize = pl.size();                          // 每个线上点的个数
+
+      // 定义特征向量types,并调整其大小为点云数量。
+      vector<orgtype> &types = typess[j]; // typess是全局变量[128]
       types.clear();
-      types.resize(plsize);
+      types.resize(plsize); // 重新设置大小
       plsize--;
       for (uint i = 0; i < plsize; i++)
       {
-        types[i].range = sqrt(pl[i].x * pl[i].x + pl[i].y * pl[i].y);
+        // 计算点到起始位置的距离,作为range特征
+        types[i].range = sqrt(pl[i].x * pl[i].x + pl[i].y * pl[i].y); // 计算每个点到机器人本身的距离
         vx = pl[i].x - pl[i + 1].x;
         vy = pl[i].y - pl[i + 1].y;
         vz = pl[i].z - pl[i + 1].z;
-        types[i].dista = sqrt(vx * vx + vy * vy + vz * vz);
+
+        // 计算当前点和下一个点的坐标差,作为dista特征
+        types[i].dista = sqrt(vx * vx + vy * vy + vz * vz); // 计算两个间隔点的距离
       }
+
+      // 给最后一个点赋予range特征
       types[plsize].range = sqrt(pl[plsize].x * pl[plsize].x + pl[plsize].y * pl[plsize].y);
-      give_feature(pl, types);
+
+      // 调用give_feature函数进行特征提取,输入是原点云和特征向量
+      give_feature(pl, types); // give_feature函数会利用range和dista构建字符描述子,并进行特征匹配
       // pl_surf += pl;
     }
+
     time += omp_get_wtime() - t0;
+
     printf("Feature extraction time: %lf \n", time / count);
+
   }
-  else
+  else // 不进行点云特征提取
   {
+
     for (uint i = 1; i < plsize; i++)
     {
       if ((msg->points[i].line < N_SCANS) &&
@@ -180,6 +198,12 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
           pl_full[i].curvature = msg->points[i].offset_time /
                                  float(1000000); // use curvature as time of each laser points, curvature unit: ms
 
+          // 计算当前点pl_full[i]和上一点pl_full[i-1]在x、y、z轴上的坐标差值
+          // 判断坐标差的绝对值是否都大于1e-7(0.0000001),这个值是距离变化的阈值
+          // 再判断当前点到原点的距离是否大于blind的平方(blind应该是设置的距离阈值)
+          // 如果上述两个条件都满足,则认为当前点与上一点距离变化较大,且不在距离阈值内
+          // 这时保留该点作为有效点,如果不满足条件则跳过
+          // 这样通过设定距离变化阈值和距离范围,可以滤除静止时附近过密的点,只保留变化较大的有效点。
           if ((abs(pl_full[i].x - pl_full[i - 1].x) > 1e-7) || (abs(pl_full[i].y - pl_full[i - 1].y) > 1e-7) ||
               (abs(pl_full[i].z - pl_full[i - 1].z) > 1e-7) &&
                   (pl_full[i].x * pl_full[i].x + pl_full[i].y * pl_full[i].y + pl_full[i].z * pl_full[i].z >
@@ -190,6 +214,7 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
         }
       }
     }
+    
   }
 }
 
@@ -475,82 +500,100 @@ void Preprocess::velodyne_handler(const sensor_msgs::msg::PointCloud2::UniquePtr
 
 void Preprocess::mid360_handler(const sensor_msgs::msg::PointCloud2::UniquePtr &msg)
 {
-  pl_surf.clear();
-  pl_corn.clear();
-  pl_full.clear();
+  // 全局变量，类声明是声明。
+  pl_surf.clear(); // 清除之前的平面点云缓存
+  pl_corn.clear(); // 清除之前的角点云缓存
+  pl_full.clear(); // 清除之前的全点云缓存
 
+  // 在 PCL 中，PointT 是基本的点的表示形式，包括 PointXYZ、PointXYZRGB、Normal 等，而 PointCloud 则是存储点集的容器。PointCloud 被定义在 point_cloud 文件中。
   pcl::PointCloud<livox_ros::LivoxPointXyzrtl> pl_orig;
-  pcl::fromROSMsg(*msg, pl_orig);
-  int plsize = pl_orig.points.size();
+  pcl::fromROSMsg(*msg, pl_orig);     // 将msg格式转换成pcl
+  int plsize = pl_orig.points.size(); // 一帧中的点云总个数
   if (plsize == 0)
     return;
   pl_surf.reserve(plsize);
 
   /*** These variables only works when no point timestamps given ***/
-  double omega_l = 0.361 * SCAN_RATE; // scan angular velocity
-  std::vector<bool> is_first(N_SCANS, true);
+  double omega_l = 0.361 * SCAN_RATE;         // scan angular velocity //10Hz 1s转360度 1ms转0.36度
+  std::vector<bool> is_first(N_SCANS, true);  // 初始化vector
   std::vector<double> yaw_fp(N_SCANS, 0.0);   // yaw of first scan point
   std::vector<float> yaw_last(N_SCANS, 0.0);  // yaw of last scan point
   std::vector<float> time_last(N_SCANS, 0.0); // last offset time
   /*****************************************************************/
 
-  given_offset_time = false;
-  double yaw_first = atan2(pl_orig.points[0].y, pl_orig.points[0].x) * 57.29578;
-  double yaw_end = yaw_first;
-  int layer_first = pl_orig.points[0].line;
+  given_offset_time = false;                                                     // 不提供时间偏移
+  double yaw_first = atan2(pl_orig.points[0].y, pl_orig.points[0].x) * 57.29578; // atan2 返回值的单位为弧度    1弧度= 180°/π= 57.295779513°    度=弧度×180°/π
+  double yaw_end = yaw_first;                                                    // 声明变量赋值，后续修改
+  int layer_first = pl_orig.points[0].line;                                      // 第一个点的层号
+  cout << "layer_first" << layer_first << endl;
+
   for (uint i = plsize - 1; i > 0; i--)
   {
     if (pl_orig.points[i].line == layer_first)
     {
-      yaw_end = atan2(pl_orig.points[i].y, pl_orig.points[i].x) * 57.29578;
+      yaw_end = atan2(pl_orig.points[i].y, pl_orig.points[i].x) * 57.29578; // 求最大角度
       break;
     }
-  }
+  } // 寻找终止yaw角
 
-  for (uint i = 0; i < plsize; ++i)
+  for (uint i = 0; i < plsize; ++i) // 这里++i和i++好像没有区别，扫描一条线上所有的点。
   {
-    PointType added_pt;
-    added_pt.normal_x = 0;
+    PointType added_pt; // 局部变量，for循环结束之后会释放。
+    // A point structure representing Euclidean xyz coordinates, intensity, together with normal coordinates and the surface curvature estimate.
+
+    added_pt.normal_x = 0; // 法线坐标
     added_pt.normal_y = 0;
     added_pt.normal_z = 0;
-    added_pt.x = pl_orig.points[i].x;
+
+    added_pt.x = pl_orig.points[i].x; // 点坐标
     added_pt.y = pl_orig.points[i].y;
     added_pt.z = pl_orig.points[i].z;
-    added_pt.intensity = pl_orig.points[i].intensity;
-    added_pt.curvature = 0.;
 
-    int layer = pl_orig.points[i].line;
-    double yaw_angle = atan2(added_pt.y, added_pt.x) * 57.2957;
+    added_pt.intensity = pl_orig.points[i].intensity; // 强度
+
+    added_pt.curvature = 0.;                             // 曲率，点云的曲率可以用来表征点云的几何特征，例如边缘、角点、平面等。
+
+    int layer = pl_orig.points[i].line;                         // 线数
+
+    double yaw_angle = atan2(added_pt.y, added_pt.x) * 57.2957; // 计算一个二维点相对于x轴的角度弧度值,并将其转换为度制的航向角。
 
     if (is_first[layer])
     {
       // printf("layer: %d; is first: %d", layer, is_first[layer]);
-      yaw_fp[layer] = yaw_angle;
-      is_first[layer] = false;
-      added_pt.curvature = 0.0;
-      yaw_last[layer] = yaw_angle;
-      time_last[layer] = added_pt.curvature;
+      yaw_fp[layer] = yaw_angle;             // 第一个点的角度
+      is_first[layer] = false;               // 将is_first[layer]设置为false
+      added_pt.curvature = 0.0;              // 曲率
+      yaw_last[layer] = yaw_angle;           // 最后一个点的角度
+      time_last[layer] = added_pt.curvature; // 最后一个点的时间，时间偏移，为什么是曲率呢？
       continue;
     }
 
     // compute offset time
-    if (yaw_angle <= yaw_fp[layer])
+    if (yaw_angle <= yaw_fp[layer]) // 判断当前激光束的偏航角是否小于等于初始偏航角
     {
-      added_pt.curvature = (yaw_fp[layer] - yaw_angle) / omega_l;
+      // 激光雷达的偏航角是指激光雷达绕垂直于水平面的轴旋转时，每秒钟旋转的角度。
+      added_pt.curvature = (yaw_fp[layer] - yaw_angle) / omega_l; // 如果是，那么计算时间偏移量为两者之差除以水平角速度
     }
     else
     {
+      // 如果不是，那么计算时间偏移量为两者之差加上360度再除以水平角速度
+      // 这是为了处理偏航角从360度跳到0度的情况
       added_pt.curvature = (yaw_fp[layer] - yaw_angle + 360.0) / omega_l;
     }
 
-    if (added_pt.curvature < time_last[layer])
+    if (added_pt.curvature < time_last[layer]) // 判断时间偏移量是否小于上一次记录的时间
       added_pt.curvature += 360.0 / omega_l;
+    // 如果是，那么加上一圈的时间，即360度除以水平角速度
+    // 这是为了处理一帧点云内多圈扫描的情况
 
+    // 更新上一次记录的偏航角和时间
     yaw_last[layer] = yaw_angle;
     time_last[layer] = added_pt.curvature;
 
+    // 判断激光点的距离是否大于盲区距离
     if (added_pt.x * added_pt.x + added_pt.y * added_pt.y + added_pt.z * added_pt.z > (blind * blind))
     {
+      // 如果是，那么将该点加入到平面点云中
       pl_surf.push_back(std::move(added_pt));
     }
   }
