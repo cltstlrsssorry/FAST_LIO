@@ -1389,16 +1389,16 @@ private:
 
             double t0, t1, t2, t3, t4, t5, match_start, solve_start, svd_time;//定义时间变量。
 
-            match_time = 0;
-            kdtree_search_time = 0.0;
-            solve_time = 0;
-            solve_const_H_time = 0;
-            svd_time = 0;
-            t0 = omp_get_wtime();
+            match_time = 0;//match_time：用于记录点云配准的时间开销。
+            kdtree_search_time = 0.0;//kdtree_search_time：用于记录 KDTree 搜索的时间开销。
+            solve_time = 0;//solve_time：用于记录迭代卡尔曼滤波器更新的时间开销。
+            solve_const_H_time = 0;//solve_const_H_time：用于记录构造 H 矩阵的时间开销。
+            svd_time = 0;//svd_time：用于记录 SVD 分解的时间开销。
+            t0 = omp_get_wtime();//t0 = omp_get_wtime()：用于记录当前时间，作为计算各种时间开销的起点。
 
             p_imu->Process(Measures, kf, feats_undistort);//IMU 处理数据包，并将结果存储在 kf 和 feats_undistort 中。
-            state_point = kf.get_x();
-            pos_lid = state_point.pos + state_point.rot * state_point.offset_T_L_I;
+            state_point = kf.get_x();//获取当前状态估计。
+            pos_lid = state_point.pos + state_point.rot * state_point.offset_T_L_I;//计算激光雷达坐标系下的位置。
 
             if (feats_undistort->empty() || (feats_undistort == NULL))//检查点云是否为空。
             {
@@ -1415,36 +1415,36 @@ private:
             /*** downsample the feature points in a scan ***/
             downSizeFilterSurf.setInputCloud(feats_undistort);//设置点云过滤器参数。
             downSizeFilterSurf.filter(*feats_down_body);//应用点云过滤器。
-            t1 = omp_get_wtime();
+            t1 = omp_get_wtime(); //记录过滤后的点云数量和时间。
             feats_down_size = feats_down_body->points.size();//获取过滤后的点云数量。
             
 
             /*** initialize the map kdtree ***/
-            if (ikdtree.Root_Node == nullptr)
+            if (ikdtree.Root_Node == nullptr)//检查kdtree的根节点是否为空。如果是，表示需要初始化kdtree。
             {
-                RCLCPP_INFO(this->get_logger(), "Initialize the map kdtree");
-                if (feats_down_size > 5)//如果过滤后的点云数量小于 5，则跳过该扫描。
+                RCLCPP_INFO(this->get_logger(), "Initialize the map kdtree");//在日志中记录初始化kdtree的信息。
+                if (feats_down_size > 5)//判断过滤后的点云数量是否小于5。如果是，则继续执行以下操作。
                 {
-                    ikdtree.set_downsample_param(filter_size_map_min);
-                    feats_down_world->resize(feats_down_size);
-                    for (int i = 0; i < feats_down_size; i++)
+                    ikdtree.set_downsample_param(filter_size_map_min);//设置kdtree的下采样参数。
+                    feats_down_world->resize(feats_down_size);//创建一个新的点云对象，并将过滤后的点云复制到新对象中。
+                    for (int i = 0; i < feats_down_size; i++)//遍历新创建的点云对象中的点。
                     {
-                        pointBodyToWorld(&(feats_down_body->points[i]), &(feats_down_world->points[i]));
+                        pointBodyToWorld(&(feats_down_body->points[i]), &(feats_down_world->points[i]));//将点从body坐标系转换到world坐标系。
                     }
-                    ikdtree.Build(feats_down_world->points);
+                    ikdtree.Build(feats_down_world->points);//使用ikdtree对象构建新的点云。
                 }
                 return;
             }
-            int featsFromMapNum = ikdtree.validnum();
-            kdtree_size_st = ikdtree.size();
+            int featsFromMapNum = ikdtree.validnum();//获取kdtree中的有效点数量。
+            kdtree_size_st = ikdtree.size();//记录kdtree的大小。
 
             // cout<<"[ mapping ]: In num: "<<feats_undistort->points.size()<<" downsamp "<<feats_down_size<<" Map num: "<<featsFromMapNum<<"effect num:"<<effct_feat_num<<endl;
 
             /*** ICP and iterated Kalman filter update ***/
-            if (feats_down_size < 5)
+            if (feats_down_size < 5)//判断过滤后的点云数量是否小于5。如果是，则执行以下操作：
             {
-                RCLCPP_WARN(this->get_logger(), "No point, skip this scan!\n");
-                return;
+                RCLCPP_WARN(this->get_logger(), "No point, skip this scan!\n");//在日志中记录跳过该扫描的消息。
+                return;//直接返回，不再执行后续代码。
             }
 
             normvec->resize(feats_down_size);//重新调整 normvec 的大小。
