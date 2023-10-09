@@ -150,7 +150,14 @@ PointCloudXYZI::Ptr laserCloudOri(new PointCloudXYZI(100000, 1)); // laserCloudO
 PointCloudXYZI::Ptr corr_normvect(new PointCloudXYZI(100000, 1)); // corr_normvect: 校正后的法向量
 PointCloudXYZI::Ptr _featsArray;                                  //_featsArray: 特征点提取用
 
-pcl::VoxelGrid<PointType> downSizeFilterSurf; // downSizeFilterSurf: 下采样滤波器
+// 这个对象用于下采样点云数据，但保留原始点云的表面特征。
+// 换句话说，它将点云数据缩小到原来的1/4，但保留表面特征（如法向量、颜色等）。
+// 这对于处理表面数据（如物体表面）非常有用，因为它可以提高处理速度，同时保持表面特征的准确性。
+pcl::VoxelGrid<PointType> downSizeFilterSurf;
+
+// 这个对象用于下采样点云数据，但移除原始点云的所有表面特征。
+// 换句话说，它将点云数据缩小到原来的1/4，同时移除表面特征（如法向量、颜色等）。
+// 这对于处理内部数据（如物体内部）非常有用，因为它可以提高处理速度，同时保持内部数据的准确性。
 pcl::VoxelGrid<PointType> downSizeFilterMap;
 
 KD_TREE<PointType> ikdtree; // ikdtree: kd树对象
@@ -407,8 +414,8 @@ void standard_pcl_cbk(const sensor_msgs::msg::PointCloud2::UniquePtr msg)
     mtx_buffer.lock(); // 调用该函数的线程尝试加锁。如果上锁不成功，即：其它线程已经上锁且未释放，则当前线程block。如果上锁成功，则执行后面的操作，操作完成后要调用mtx.unlock()释放锁，否则会导致死锁的产生
     scan_count++;
     double cur_time = get_time_sec(msg->header.stamp);
-    double preprocess_start_time = omp_get_wtime();         // 可以理解为当前时间戳
-    
+    double preprocess_start_time = omp_get_wtime(); // 可以理解为当前时间戳
+
     if (!is_first_lidar && cur_time < last_timestamp_lidar) // 检测激光时间戳是否异常
     {
         std::cerr << "lidar loop back, clear buffer" << std::endl;
@@ -851,13 +858,13 @@ void publish_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub
     // 设置点云消息的header.stamp为当前时间。
     // laserCloudmsg.header.stamp = ros::Time().fromSec(lidar_end_time);
 
-    //设置点云消息的header.stamp为当前时间。
+    // 设置点云消息的header.stamp为当前时间。
     laserCloudmsg.header.stamp = get_ros_time(lidar_end_time);
 
-    //设置点云消息的header.frame_id为"camera_init"。
+    // 设置点云消息的header.frame_id为"camera_init"。
     laserCloudmsg.header.frame_id = "camera_init";
 
-    //发布点云消息。
+    // 发布点云消息。
     pubLaserCloudMap->publish(laserCloudmsg);
 
     // sensor_msgs::msg::PointCloud2 laserCloudMap;
@@ -1531,6 +1538,20 @@ private:
                          << " " << state_point.bg.transpose() << " " << state_point.ba.transpose() << " " << state_point.grav << " " << feats_undistort->points.size() << endl;
                 dump_lio_state_to_log(fp);
             }
+        }
+    }
+
+    /**
+     * 定义了一个名为map_publish_callback的函数，该函数在map_pub_en条件为真时执行。
+     * 具体来说，当map_pub_en的值为1时，它会调用publish_map函数，并将结果赋值给pubLaserCloudMap_。
+     * publish_map函数可能用于发布地图数据，具体实现取决于上下文。
+     * 此外，pubLaserCloudMap_可能是一个发布地图数据的发布者对象，用于将地图数据发布到特定的主题上。
+     */
+    void map_publish_callback()
+    {
+        if (map_pub_en)
+        {
+            publish_map(pubLaserCloudMap_);
         }
     }
 
