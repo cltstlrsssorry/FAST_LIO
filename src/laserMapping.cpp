@@ -810,6 +810,7 @@ void publish_frame_body(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::Shared
     publish_count -= PUBFRAME_PERIOD;
 }
 
+
 // 发布effect point
 void publish_effect_world(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudEffect)
 {
@@ -826,6 +827,7 @@ void publish_effect_world(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::Shar
     laserCloudFullRes3.header.frame_id = "camera_init";
     pubLaserCloudEffect->publish(laserCloudFullRes3);
 }
+
 
 // 定义一个发布地图数据的函数，参数为一个发布器对象。
 void publish_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudMap)
@@ -874,11 +876,13 @@ void publish_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub
     // pubLaserCloudMap->publish(laserCloudMap);
 }
 
+
 void save_to_pcd()
 {
     pcl::PCDWriter pcd_writer;
     pcd_writer.writeBinary(map_file_path, *pcl_wait_pub);
 }
+
 
 template <typename T>
 void set_posestamp(T &out)
@@ -1556,112 +1560,99 @@ private:
     }
 
     /**
-     * 定义了一个名为map_publish_callback的函数，该函数在map_pub_en条件为真时执行。
-     * 具体来说，当map_pub_en的值为1时，它会调用publish_map函数，并将结果赋值给pubLaserCloudMap_。
-     * publish_map函数可能用于发布地图数据，具体实现取决于上下文。
-     * 此外，pubLaserCloudMap_可能是一个发布地图数据的发布者对象，用于将地图数据发布到特定的主题上。
+     * 定义了一个名为map_save_callback的函数，该函数是一个回调函数，用于处理服务请求。当服务请求被触发时，它会执行以下操作：
+     * std_srvs::srv::Trigger::Request::ConstSharedPtr req和std_srvs::srv::Trigger::Response::SharedPtr res分别表示服务请求和响应的指针。
+     * map_file_path可能是一个字符串，表示地图保存的文件路径。
      */
-    void map_publish_callback()
+    void map_save_callback(std_srvs::srv::Trigger::Request::ConstSharedPtr req, std_srvs::srv::Trigger::Response::SharedPtr res)
     {
-        if (map_pub_en)
+        // 输出一条日志信息，表示正在保存地图到指定的文件路径。
+        RCLCPP_INFO(this->get_logger(), "Saving map to %s...", map_file_path.c_str());
+
+        // 检查pcd_save_en的值，如果为真，则调用save_to_pcd函数将地图保存到pcd文件中。
+        if (pcd_save_en)
         {
-            publish_map(pubLaserCloudMap_);
+            save_to_pcd();
+            res->success = true; // 返回一个成功响应，表示地图已成功保存。
+            res->message = "Map saved.";
         }
-
-        /**
-         * 定义了一个名为map_save_callback的函数，该函数是一个回调函数，用于处理服务请求。当服务请求被触发时，它会执行以下操作：
-         * std_srvs::srv::Trigger::Request::ConstSharedPtr req和std_srvs::srv::Trigger::Response::SharedPtr res分别表示服务请求和响应的指针。
-         * map_file_path可能是一个字符串，表示地图保存的文件路径。
-         */
-        void map_save_callback(std_srvs::srv::Trigger::Request::ConstSharedPtr req, std_srvs::srv::Trigger::Response::SharedPtr res)
+        else // 如果pcd_save_en的值为假，则返回一个失败响应，表示地图保存功能已被禁用。
         {
-            // 输出一条日志信息，表示正在保存地图到指定的文件路径。
-            RCLCPP_INFO(this->get_logger(), "Saving map to %s...", map_file_path.c_str());
-
-            // 检查pcd_save_en的值，如果为真，则调用save_to_pcd函数将地图保存到pcd文件中。
-            if (pcd_save_en)
-            {
-                save_to_pcd();
-                res->success = true; // 返回一个成功响应，表示地图已成功保存。
-                res->message = "Map saved.";
-            }
-            else // 如果pcd_save_en的值为假，则返回一个失败响应，表示地图保存功能已被禁用。
-            {
-                res->success = false;
-                res->message = "Map save disabled.";
-            }
+            res->success = false;
+            res->message = "Map save disabled.";
         }
-
-    private:
-        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudFull_;      // 创建一个发布器，用于发布完整点云数据。
-        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudFull_body_; // 创建一个发布器，用于发布身体坐标系下的点云数据。
-        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudEffect_;    // 创建一个发布器，用于发布滤波后的点云数据。
-        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudMap_;       // 创建一个发布器，用于发布地图上的点云数据。
-        rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubOdomAftMapped_;             // 创建一个发布器，用于发布运动模型估计后的位置和姿态。
-        rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pubPath_;                          // 创建一个发布器，用于发布路径数据。
-        rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu_;                     // 创建一个订阅器，用于订阅IMU数据。
-        rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_pcl_pc_;          // 创建一个订阅器，用于订阅原始点云数据。
-        rclcpp::Subscription<livox_ros_driver2::msg::CustomMsg>::SharedPtr sub_pcl_livox_;   // 创建一个订阅器，用于订阅 Livox 点云数据。
-
-        std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;   // 创建一个转换发布器，用于发布tf变换数据。
-        rclcpp::TimerBase::SharedPtr timer_;                              // 创建一个计时器，用于定期执行某些操作。
-        rclcpp::TimerBase::SharedPtr map_pub_timer_;                      // 创建一个计时器，用于定期发布地图数据。
-        rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr map_save_srv_; // 创建一个服务，用于保存地图数据。
-
-        bool effect_pub_en = false, map_pub_en = false; // 将滤波后发布器和地图发布器的状态设置为false。
-        int effect_feat_num = 0, frame_num = 0;         // 将滤波后的特征点和总帧数设置为0。
-
-        // 初始化时间变量和平均时间。
-        double deltaT, deltaR, aver_time_consu = 0, aver_time_icp = 0, aver_time_match = 0, aver_time_incre = 0, aver_time_solve = 0, aver_time_const_H_time = 0;
-
-        bool flg_EKF_converged, EKF_stop_flg = 0; // 将EKF收敛标志和EKF停止标志设置为false。
-        double epsi[23] = {0.001};                // 初始化epsi数组，用于判断EKF收敛。
-
-        FILE *fp;                              // 创建一个文件指针，用于写入数据。
-        ofstream fout_pre, fout_out, fout_dbg; // 创建三个文件流，用于写入预处理、输出和调试数据。
-    };
-
-    int main(int argc, char **argv)
-    {
-        rclcpp::init(argc, argv); /* 初始化rclcpp  */
-
-        signal(SIGINT, SigHandle);
-
-        /* 运行节点，并检测退出信号 Ctrl+C*/
-        rclcpp::spin(std::make_shared<LaserMappingNode>()); // 产生一个LaserMappingNode的节点
-
-        if (rclcpp::ok())
-            rclcpp::shutdown();
-        /**************** save map ****************/
-        /* 1. make sure you have enough memories
-        /* 2. pcd save will largely influence the real-time performences **/
-        if (pcl_wait_save->size() > 0 && pcd_save_en)
-        {
-            string file_name = string("scans.pcd");
-            string all_points_dir(string(string(ROOT_DIR) + "PCD/") + file_name);
-            pcl::PCDWriter pcd_writer;
-            cout << "current scan saved to /PCD/" << file_name << endl;
-            pcd_writer.writeBinary(all_points_dir, *pcl_wait_save);
-        }
-
-        if (runtime_pos_log)
-        {
-            vector<double> t, s_vec, s_vec2, s_vec3, s_vec4, s_vec5, s_vec6, s_vec7;
-            FILE *fp2;
-            string log_dir = root_dir + "/Log/fast_lio_time_log.csv";
-            fp2 = fopen(log_dir.c_str(), "w");
-            fprintf(fp2, "time_stamp, total time, scan point size, incremental time, search time, delete size, delete time, tree size st, tree size end, add point size, preprocess time\n");
-            for (int i = 0; i < time_log_counter; i++)
-            {
-                fprintf(fp2, "%0.8f,%0.8f,%d,%0.8f,%0.8f,%d,%0.8f,%d,%d,%d,%0.8f\n", T1[i], s_plot[i], int(s_plot2[i]), s_plot3[i], s_plot4[i], int(s_plot5[i]), s_plot6[i], int(s_plot7[i]), int(s_plot8[i]), int(s_plot10[i]), s_plot11[i]);
-                t.push_back(T1[i]);
-                s_vec.push_back(s_plot9[i]);
-                s_vec2.push_back(s_plot3[i] + s_plot6[i]);
-                s_vec3.push_back(s_plot4[i]);
-                s_vec5.push_back(s_plot[i]);
-            }
-            fclose(fp2);
-        }
-
-        return 0;
     }
+
+private:
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudFull_;      // 创建一个发布器，用于发布完整点云数据。
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudFull_body_; // 创建一个发布器，用于发布身体坐标系下的点云数据。
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudEffect_;    // 创建一个发布器，用于发布滤波后的点云数据。
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudMap_;       // 创建一个发布器，用于发布地图上的点云数据。
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pubOdomAftMapped_;             // 创建一个发布器，用于发布运动模型估计后的位置和姿态。
+    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pubPath_;                          // 创建一个发布器，用于发布路径数据。
+    rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu_;                     // 创建一个订阅器，用于订阅IMU数据。
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_pcl_pc_;          // 创建一个订阅器，用于订阅原始点云数据。
+    rclcpp::Subscription<livox_ros_driver2::msg::CustomMsg>::SharedPtr sub_pcl_livox_;   // 创建一个订阅器，用于订阅 Livox 点云数据。
+
+    std::unique_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;   // 创建一个转换发布器，用于发布tf变换数据。
+    rclcpp::TimerBase::SharedPtr timer_;                              // 创建一个计时器，用于定期执行某些操作。
+    rclcpp::TimerBase::SharedPtr map_pub_timer_;                      // 创建一个计时器，用于定期发布地图数据。
+    rclcpp::Service<std_srvs::srv::Trigger>::SharedPtr map_save_srv_; // 创建一个服务，用于保存地图数据。
+
+    bool effect_pub_en = false, map_pub_en = false; // 将滤波后发布器和地图发布器的状态设置为false。
+    int effect_feat_num = 0, frame_num = 0;         // 将滤波后的特征点和总帧数设置为0。
+
+    // 初始化时间变量和平均时间。
+    double deltaT, deltaR, aver_time_consu = 0, aver_time_icp = 0, aver_time_match = 0, aver_time_incre = 0, aver_time_solve = 0, aver_time_const_H_time = 0;
+
+    bool flg_EKF_converged, EKF_stop_flg = 0; // 将EKF收敛标志和EKF停止标志设置为false。
+    double epsi[23] = {0.001};                // 初始化epsi数组，用于判断EKF收敛。
+
+    FILE *fp;                              // 创建一个文件指针，用于写入数据。
+    ofstream fout_pre, fout_out, fout_dbg; // 创建三个文件流，用于写入预处理、输出和调试数据。
+};
+
+int main(int argc, char **argv)
+{
+    rclcpp::init(argc, argv); /* 初始化rclcpp  */
+
+    signal(SIGINT, SigHandle);
+
+    /* 运行节点，并检测退出信号 Ctrl+C*/
+    rclcpp::spin(std::make_shared<LaserMappingNode>()); // 产生一个LaserMappingNode的节点
+
+    if (rclcpp::ok())
+        rclcpp::shutdown();
+    /**************** save map ****************/
+    /* 1. make sure you have enough memories
+    /* 2. pcd save will largely influence the real-time performences **/
+    if (pcl_wait_save->size() > 0 && pcd_save_en)
+    {
+        string file_name = string("scans.pcd");
+        string all_points_dir(string(string(ROOT_DIR) + "PCD/") + file_name);
+        pcl::PCDWriter pcd_writer;
+        cout << "current scan saved to /PCD/" << file_name << endl;
+        pcd_writer.writeBinary(all_points_dir, *pcl_wait_save);
+    }
+
+    if (runtime_pos_log)
+    {
+        vector<double> t, s_vec, s_vec2, s_vec3, s_vec4, s_vec5, s_vec6, s_vec7;
+        FILE *fp2;
+        string log_dir = root_dir + "/Log/fast_lio_time_log.csv";
+        fp2 = fopen(log_dir.c_str(), "w");
+        fprintf(fp2, "time_stamp, total time, scan point size, incremental time, search time, delete size, delete time, tree size st, tree size end, add point size, preprocess time\n");
+        for (int i = 0; i < time_log_counter; i++)
+        {
+            fprintf(fp2, "%0.8f,%0.8f,%d,%0.8f,%0.8f,%d,%0.8f,%d,%d,%d,%0.8f\n", T1[i], s_plot[i], int(s_plot2[i]), s_plot3[i], s_plot4[i], int(s_plot5[i]), s_plot6[i], int(s_plot7[i]), int(s_plot8[i]), int(s_plot10[i]), s_plot11[i]);
+            t.push_back(T1[i]);
+            s_vec.push_back(s_plot9[i]);
+            s_vec2.push_back(s_plot3[i] + s_plot6[i]);
+            s_vec3.push_back(s_plot4[i]);
+            s_vec5.push_back(s_plot[i]);
+        }
+        fclose(fp2);
+    }
+
+    return 0;
+}
