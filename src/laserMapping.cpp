@@ -90,7 +90,7 @@ string map_file_path, lid_topic, imu_topic;
 double res_mean_last = 0.05, total_residual = 0.0;
 double last_timestamp_lidar = 0, last_timestamp_imu = -1.0;
 double gyr_cov = 0.1, acc_cov = 0.1, b_gyr_cov = 0.0001, b_acc_cov = 0.0001;
-double filter_size_corner_min = 0, filter_size_surf_min = 0, filter_size_map_min = 0, fov_deg = 0;
+double filter_size_corner_min = 0, filter_size_surf_min = 0, filter_size_map_min = 0, fov_deg = 0,filter_size_publish_map_min=0;
 double cube_len = 0, HALF_FOV_COS = 0, FOV_DEG = 0, total_distance = 0, lidar_end_time = 0, first_lidar_time = 0.0;
 int    effct_feat_num = 0, time_log_counter = 0, scan_count = 0, publish_count = 0;
 int    iterCount = 0, feats_down_size = 0, NUM_MAX_ITERATIONS = 0, laserCloudValidNum = 0, pcd_save_interval = -1, pcd_index = 0;
@@ -119,6 +119,7 @@ PointCloudXYZI::Ptr _featsArray;
 
 pcl::VoxelGrid<PointType> downSizeFilterSurf;
 pcl::VoxelGrid<PointType> downSizeFilterMap;
+pcl::VoxelGrid<PointType> downSizeFilterPubilshMap;
 
 KD_TREE<PointType> ikdtree;
 
@@ -485,6 +486,7 @@ void map_incremental()
 }
 
 PointCloudXYZI::Ptr pcl_wait_pub(new PointCloudXYZI());
+PointCloudXYZI::Ptr pcl_wait_pub_down(new PointCloudXYZI());
 PointCloudXYZI::Ptr pcl_wait_save(new PointCloudXYZI());
 void publish_frame_world(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudFull)
 {
@@ -593,12 +595,12 @@ void publish_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub
     *pcl_wait_pub += *laserCloudWorld;
     
     // *pcl_wait_pub 矩阵稀疏化
-    pcl::VoxelGrid<PointType> downSizeFilterMap;
-    downSizeFilterMap.setInputCloud(pcl_wait_pub);
-    downSizeFilterMap.setLeafSize(map_leaf_size, map_leaf_size, map_leaf_size);
+    downSizeFilterPubilshMap.setInputCloud(pcl_wait_pub);
+    downSizeFilterPubilshMap.setLeafSize(filter_size_publish_map_min, filter_size_publish_map_min, filter_size_publish_map_min);
+    downSizeFilterPubilshMap.filter(*pcl_wait_pub_down);
 
     sensor_msgs::msg::PointCloud2 laserCloudmsg;
-    pcl::toROSMsg(*pcl_wait_pub, laserCloudmsg);
+    pcl::toROSMsg(*pcl_wait_pub_down, laserCloudmsg);
     
     // laserCloudmsg.header.stamp = ros::Time().fromSec(lidar_end_time);
     laserCloudmsg.header.stamp = get_ros_time(lidar_end_time);
@@ -818,6 +820,7 @@ public:
         this->declare_parameter<double>("filter_size_corner", 0.5);
         this->declare_parameter<double>("filter_size_surf", 0.5);
         this->declare_parameter<double>("filter_size_map", 0.5);
+        this->declare_parameter<double>("filter_size_publish_map", 0.5);
         this->declare_parameter<double>("cube_side_length", 200.);
         this->declare_parameter<float>("mapping.det_range", 300.);
         this->declare_parameter<double>("mapping.fov_degree", 180.);
@@ -854,6 +857,7 @@ public:
         this->get_parameter_or<double>("filter_size_corner",filter_size_corner_min,0.5);
         this->get_parameter_or<double>("filter_size_surf",filter_size_surf_min,0.5);
         this->get_parameter_or<double>("filter_size_map",filter_size_map_min,0.5);
+        this->get_parameter_or<double>("filter_size_publish_map",filter_size_publish_map_min,0.5);
         this->get_parameter_or<double>("cube_side_length",cube_len,200.f);
         this->get_parameter_or<float>("mapping.det_range",DET_RANGE,300.f);
         this->get_parameter_or<double>("mapping.fov_degree",fov_deg,180.f);
@@ -1118,7 +1122,7 @@ private:
         {
             publish_map(pubLaserCloudMap_);
 
-            dense_pub_en ?  feats_undistort->clear() : feats_down_body->clear();
+            dense_pub_en ?  feats_undistort->points.clear() : feats_down_body->points.clear();
         }
     }
 

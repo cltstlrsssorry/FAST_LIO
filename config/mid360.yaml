@@ -2,6 +2,9 @@
     ros__parameters:
         map_file_path: "./test.pcd"
         feature_extract_enable: false
+        filter_size_map: 0.5
+        filter_size_surf: 0.5
+        filter_size_publish_map: 0.05
         common:
             lid_topic:  "/livox/lidar"
             imu_topic:  "/livox/imu"
