@@ -1,7 +1,7 @@
 /**:
     ros__parameters:
         map_file_path: "./test.pcd"
-        feature_extract_enable: true
+        feature_extract_enable: false
         common:
             lid_topic:  "/livox/lidar"
             imu_topic:  "/livox/imu"
