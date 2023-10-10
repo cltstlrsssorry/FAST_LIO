@@ -592,8 +592,8 @@ void publish_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub
     }
 
     *pcl_wait_pub += *laserCloudWorld;
-    
-    // *pcl_wait_pub 矩阵稀疏化
+
+    // *pcl_wait_pub 矩阵稀疏化.
     //pcl::VoxelGrid<PointType> downSizeFilterMap;
     //downSizeFilterMap.setInputCloud(pcl_wait_pub);
     //downSizeFilterMap.setLeafSize(map_leaf_size, map_leaf_size, map_leaf_size);
