@@ -584,7 +584,6 @@ void publish_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub
     int size = laserCloudFullRes->points.size();
     cout<<"size:"<<size<<endl;
     PointCloudXYZI::Ptr laserCloudWorld(new PointCloudXYZI(size, 1));
-    PointCloudXYZI::Ptr laserCloudWorld(new PointCloudXYZI(size, 1));
 
     for (int i = 0; i < size; i++)
     {
