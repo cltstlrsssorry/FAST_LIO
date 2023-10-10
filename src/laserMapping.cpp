@@ -582,6 +582,7 @@ void publish_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub
 {
     PointCloudXYZI::Ptr laserCloudFullRes(dense_pub_en ? feats_undistort : feats_down_body);
     int size = laserCloudFullRes->points.size();
+    cout<<"size:"<<size<<endl;
     PointCloudXYZI::Ptr laserCloudWorld(new PointCloudXYZI(size, 1));
     PointCloudXYZI::Ptr laserCloudWorld(new PointCloudXYZI(size, 1));
 
@@ -592,8 +593,8 @@ void publish_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub
     }
 
     *pcl_wait_pub += *laserCloudWorld;
-
-    // *pcl_wait_pub 矩阵稀疏化.
+    
+    // *pcl_wait_pub 矩阵稀疏化
     //pcl::VoxelGrid<PointType> downSizeFilterMap;
     //downSizeFilterMap.setInputCloud(pcl_wait_pub);
     //downSizeFilterMap.setLeafSize(map_leaf_size, map_leaf_size, map_leaf_size);
@@ -993,8 +994,7 @@ private:
                 return;
             }
 
-            flg_EKF_inited = (Measures.lidar_beg_time - first_lidar_time) < INIT_TIME ? \
-                            false : true;
+            flg_EKF_inited = (Measures.lidar_beg_time - first_lidar_time) < INIT_TIME ? false : true;
             /*** Segment the map in lidar FOV ***/
             lasermap_fov_segment();
 
@@ -1038,7 +1038,7 @@ private:
             fout_pre<<setw(20)<<Measures.lidar_beg_time - first_lidar_time<<" "<<euler_cur.transpose()<<" "<< state_point.pos.transpose()<<" "<<ext_euler.transpose() << " "<<state_point.offset_T_L_I.transpose()<< " " << state_point.vel.transpose() \
             <<" "<<state_point.bg.transpose()<<" "<<state_point.ba.transpose()<<" "<<state_point.grav<< endl;
 
-            if(1) // If you need to see map point, change to "if(1)"
+            if(0) // If you need to see map point, change to "if(1)"
             {
                 PointVector ().swap(ikdtree.PCL_Storage);
                 ikdtree.flatten(ikdtree.Root_Node, ikdtree.PCL_Storage, NOT_RECORD);
@@ -1116,7 +1116,12 @@ private:
 
     void map_publish_callback()
     {
-        if (map_pub_en) publish_map(pubLaserCloudMap_);
+        if (map_pub_en) 
+        {
+            publish_map(pubLaserCloudMap_);
+
+            dense_pub_en ?  feats_undistort->clear() : feats_down_body->clear();
+        }
     }
 
     void map_save_callback(std_srvs::srv::Trigger::Request::ConstSharedPtr req, std_srvs::srv::Trigger::Response::SharedPtr res)
