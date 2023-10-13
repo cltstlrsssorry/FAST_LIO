@@ -154,11 +154,12 @@ PointCloudXYZI::Ptr _featsArray;                                  //_featsArray:
 // 换句话说，它将点云数据缩小到原来的1/4，但保留表面特征（如法向量、颜色等）。
 // 这对于处理表面数据（如物体表面）非常有用，因为它可以提高处理速度，同时保持表面特征的准确性。
 pcl::VoxelGrid<PointType> downSizeFilterSurf;
-
 // 这个对象用于下采样点云数据，但移除原始点云的所有表面特征。
 // 换句话说，它将点云数据缩小到原来的1/4，同时移除表面特征（如法向量、颜色等）。
 // 这对于处理内部数据（如物体内部）非常有用，因为它可以提高处理速度，同时保持内部数据的准确性。
 pcl::VoxelGrid<PointType> downSizeFilterMap;
+
+pcl::VoxelGrid<PointType> downSizeFilterpPublishMap; // downSizeFilterpPublishMap: 点云下采样滤波器
 
 KD_TREE<PointType> ikdtree; // ikdtree: kd树对象
 
@@ -851,9 +852,13 @@ void publish_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub
     // 将转换后的点云添加到等待发布的点云对象中。
     *pcl_wait_pub += *laserCloudWorld;
 
+    // *pcl_wait_pub 矩阵稀疏化
+    downSizeFilterPublishMap.setInputCloud(pcl_wait_pub);
+    downSizeFilterPublishMap.setLeafSize(filter_size_map_min, filter_size_map_min, filter_size_map_min);
+
+
     // 创建一个点云消息对象。
     sensor_msgs::msg::PointCloud2 laserCloudmsg;
-
     // 将等待发布的点云对象转换为点云消息对象。
     pcl::toROSMsg(*pcl_wait_pub, laserCloudmsg);
 
@@ -862,7 +867,6 @@ void publish_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub
 
     // 设置点云消息的header.stamp为当前时间。
     laserCloudmsg.header.stamp = get_ros_time(lidar_end_time);
-
     // 设置点云消息的header.frame_id为"camera_init"。
     laserCloudmsg.header.frame_id = "camera_init";
 
@@ -1405,6 +1409,7 @@ private:
                 }
                 return;
             }
+
             int featsFromMapNum = ikdtree.validnum(); // 获取kdtree中的有效点数量。
             kdtree_size_st = ikdtree.size();          // 记录kdtree的大小。
 

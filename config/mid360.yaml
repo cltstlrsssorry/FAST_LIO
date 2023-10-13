@@ -10,24 +10,24 @@
                                         # This param will take effect no matter what time_sync_en is. So if the time offset is not known exactly, please set as 0.0
 
         preprocess:
-            lidar_type: 1                # 1 for Livox serials LiDAR, 2 for Velodyne LiDAR, 3 for ouster LiDAR, 4 for any other pointcloud input
+            lidar_type: 4                # 1 for Livox serials LiDAR, 2 for Velodyne LiDAR, 3 for ouster LiDAR, 4 for any other pointcloud input
             scan_line:  4
             blind: 0.1
             timestamp_unit: 3
             scan_rate: 10
 
         mapping:
-            acc_cov: 0.1
-            gyr_cov: 0.1
-            b_acc_cov: 0.0001
-            b_gyr_cov: 0.0001
-            fov_degree:    180.0
-            det_range:     260.0
+            acc_cov: 0.1 # 定义了加速度计的协方差矩阵。这个数值表示协方差矩阵的方差，即每个元素表示对应传感器数据的方差。
+            gyr_cov: 0.1 # 定义了陀螺仪的协方差矩阵。这个数值表示协方差矩阵的方差，即每个元素表示对应传感器数据的方差。
+            b_acc_cov: 0.0001 # 定义了加速度计的偏移协方差矩阵。这个数值表示偏移协方差矩阵的方差，即每个元素表示对应传感器数据的方差。
+            b_gyr_cov: 0.0001 # 定义了陀螺仪的偏移协方差矩阵。这个数值表示偏移协方差矩阵的方差，即每个元素表示对应传感器数据的方差。
+            fov_degree:    180.0 # 表示激光雷达的视场角，单位为度
+            det_range:     260.0 # 表示激光雷达的最大探测距离，单位为米
             extrinsic_est_en:  true      # true: enable the online estimation of IMU-LiDAR extrinsic
-            extrinsic_T: [ 0.05512, 0.02226, -0.0297 ]
+            extrinsic_T: [ 0.05512, 0.02226, -0.0297 ] # 表示相机在世界坐标系中的位置
             extrinsic_R: [ 1., 0., 0.,
                             0., 1., 0.,
-                            0., 0., 1.]
+                            0., 0., 1.] # 表示旋转矩阵的 9 个元素
 
         publish:
             path_en: true                # true: publish Path
