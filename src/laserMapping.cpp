@@ -280,7 +280,7 @@ void detectObjectsOnCloud(PointCloudXYZI::Ptr &cloud, PointCloudXYZI::Ptr &cloud
 
 }
 
-
+// 矩阵稀疏化 体素滤波器介绍
 pcl::VoxelGrid<PointType> downSizeFilterPubilshMap;
 void downSizeFilter(PointCloudXYZI::Ptr cloud, PointCloudXYZI::Ptr cloud_down, float size)
 {
@@ -292,7 +292,7 @@ void downSizeFilter(PointCloudXYZI::Ptr cloud, PointCloudXYZI::Ptr cloud_down, f
 
 }
 
-
+//条件和半径滤波器(Conditional or RadiusOutlier )：用于离群点滤除
 pcl::RadiusOutlierRemoval<PointType > outrem; //创建滤波器对象
 void downSizeFilter(PointCloudXYZI::Ptr cloud, const PointCloudXYZI::Ptr cloud_filtered)
 {
