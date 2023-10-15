@@ -42,9 +42,15 @@ public:
   void set_extrinsic(const V3D &transl, const M3D &rot);
   void set_extrinsic(const V3D &transl);
   void set_extrinsic(const MD(4, 4) & T);
+
+  // 设置陀螺仪测量值的协方差
   void set_gyr_cov(const V3D &scaler);
+  // 设置加速度计测量值的协方差
   void set_acc_cov(const V3D &scaler);
+
+  // 设置陀螺仪偏置的协方差
   void set_gyr_bias_cov(const V3D &b_g);
+  // 设置加速度计偏置的协方差
   void set_acc_bias_cov(const V3D &b_a);
   Eigen::Matrix<double, 12, 12> Q;
   void Process(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, PointCloudXYZI::Ptr pcl_un_);

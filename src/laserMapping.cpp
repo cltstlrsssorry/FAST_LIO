@@ -48,11 +48,15 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <visualization_msgs/msg/marker.hpp>
+
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/io/pcd_io.h>
+#include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/ModelCoefficients.h>
+
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <std_srvs/srv/trigger.hpp>
@@ -110,7 +114,7 @@ double last_timestamp_lidar = 0, last_timestamp_imu = -1.0;
 double gyr_cov = 0.1, acc_cov = 0.1, b_gyr_cov = 0.0001, b_acc_cov = 0.0001;
 
 // filter_size_xxx_min: 滤波参数 fov_deg: 激光视场角
-double filter_size_corner_min = 0, filter_size_surf_min = 0, filter_size_map_min = 0, fov_deg = 0;
+double filter_size_corner_min = 0, filter_size_surf_min = 0, filter_size_map_min = 0, fov_deg = 0, filter_size_publish_map_min=0;
 
 // cube_len: 地图分块长度
 double cube_len = 0, HALF_FOV_COS = 0, FOV_DEG = 0, total_distance = 0, lidar_end_time = 0, first_lidar_time = 0.0;
@@ -158,7 +162,6 @@ pcl::VoxelGrid<PointType> downSizeFilterSurf;
 // 换句话说，它将点云数据缩小到原来的1/4，同时移除表面特征（如法向量、颜色等）。
 // 这对于处理内部数据（如物体内部）非常有用，因为它可以提高处理速度，同时保持内部数据的准确性。
 pcl::VoxelGrid<PointType> downSizeFilterMap;
-
 pcl::VoxelGrid<PointType> downSizeFilterpPublishMap; // downSizeFilterpPublishMap: 点云下采样滤波器
 
 KD_TREE<PointType> ikdtree; // ikdtree: kd树对象
@@ -204,6 +207,7 @@ void SigHandle(int sig)
  */
 inline void dump_lio_state_to_log(FILE *fp)
 {
+
     V3D rot_ang(Log(state_point.rot.toRotationMatrix())); // V3D是一个表示三维向量的类，可能是一个自定义类型，用于表示点的坐标。
 
     // rot_ang是一个表示旋转角度的向量。
@@ -333,6 +337,39 @@ void points_cache_collect()
     // 函数没有对删除的点执行任何操作，只是将删除的点存储在points_history向量中。
     //  for (int i = 0; i < points_history.size(); i++) _featsArray->push_back(points_history[i]);
 }
+
+pcl::RadiusOutlierRemoval<pcl::PointXYZ> outrem; //创建滤波器对象
+void downSizeFilter(PointCloudXYZI::Ptr cloud, const PointCloudXYZI::Ptr cloud_filtered)
+{
+    outrem.setInputCloud(cloud); //设置输入点云
+    outrem.setRadiusSearch(0.8); //设置半径为0.8的范围内找临近点
+    outrem.setMinNeighborsInRadius (2); //设置查询点的邻域点集数小于2的删除
+    outrem.filter(*cloud_filtered); //执行滤波，保存过滤结果在cloud_filtered
+}
+
+
+/**
+ * 将点从局部坐标系转换为全局坐标系。
+ * pointBodyToWorld_ikfom函数接受三个参数：局部坐标系中的点pi、全局坐标系中的点po和state_ikfom对象s。
+ */
+void pointBodyToWorld_ikfom(PointType const *const pi, PointType *const po, StateType const *const s)
+{
+    // V3D是一个表示三维向量的类，可能是一个自定义类型，用于表示点的坐标。
+    // p_body是一个局部坐标系中的点，将其转换为全局坐标系中的点。
+    V3D p_body(pi->x, pi->y, pi->z);
+
+    // p_global是局部坐标系中的点在全局坐标系中的表示。它将局部坐标系中的点乘以旋转矩阵，然后将其加上偏移向量。
+    V3D p_global(s->rot * (s->offset_R_L_I * p_body + s->offset_T_L_I) + s->pos);
+
+    // 函数将p_global的坐标值赋给po全局坐标系中的点。
+    po->x = p_global(0);
+    po->y = p_global(1);
+    po->z = p_global(2);
+
+    // 函数将pi的强度赋给po。
+    po->intensity = pi->intensity;
+}
+
 
 /**
  * 处理激光雷达地图的视野范围，并在需要时更新局部地图的顶点。
@@ -815,13 +852,13 @@ void publish_frame_body(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::Shared
 // 发布effect point
 void publish_effect_world(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudEffect)
 {
-    PointCloudXYZI::Ptr laserCloudWorld(
-        new PointCloudXYZI(effct_feat_num, 1));
+    PointCloudXYZI::Ptr laserCloudWorld(new PointCloudXYZI(effct_feat_num, 1));
+
     for (int i = 0; i < effct_feat_num; i++)
     {
-        RGBpointBodyToWorld(&laserCloudOri->points[i],
-                            &laserCloudWorld->points[i]);
+        RGBpointBodyToWorld(&laserCloudOri->points[i], &laserCloudWorld->points[i]);
     }
+
     sensor_msgs::msg::PointCloud2 laserCloudFullRes3;
     pcl::toROSMsg(*laserCloudWorld, laserCloudFullRes3);
     laserCloudFullRes3.header.stamp = get_ros_time(lidar_end_time);
@@ -829,12 +866,12 @@ void publish_effect_world(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::Shar
     pubLaserCloudEffect->publish(laserCloudFullRes3);
 }
 
-
 // 定义一个发布地图数据的函数，参数为一个发布器对象。
 void publish_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudMap)
 {
     // 根据是否进行密集Publish设置发布点的来源。
     PointCloudXYZI::Ptr laserCloudFullRes(dense_pub_en ? feats_undistort : feats_down_body);
+    PointCloudXYZI::Ptr cloud_filtered(new PointCloudXYZI(size, 1));
 
     // 获取点云的大小。
     int size = laserCloudFullRes->points.size();
@@ -853,14 +890,34 @@ void publish_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub
     *pcl_wait_pub += *laserCloudWorld;
 
     // *pcl_wait_pub 矩阵稀疏化
-    downSizeFilterPublishMap.setInputCloud(pcl_wait_pub);
-    downSizeFilterPublishMap.setLeafSize(filter_size_map_min, filter_size_map_min, filter_size_map_min);
+    downSizeFilterPubilshMap.setInputCloud(pcl_wait_pub);
+    downSizeFilterPubilshMap.setLeafSize(filter_size_publish_map_min, filter_size_publish_map_min, filter_size_publish_map_min);
+    downSizeFilterPubilshMap.filter(*pcl_wait_pub_down);
+
+    //点云分割
+    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+    pcl::PointIndices::Ptr planes(new pcl::PointIndices);  //inliers用来存储直线上点的索引
+    pcl::SACSegmentation<PointType> seg;//创建一个分割器
+    seg.setOptimizeCoefficients(true);      //可选择配置，设置模型系数需要优化
+    seg.setModelType(pcl::SACMODEL_PLANE);   //设置目标几何形状
+    seg.setMethodType(pcl::SAC_RANSAC);     //拟合方法：随机采样法
+    seg.setDistanceThreshold(0.05);         //设置误差容忍范围，也就是阈值
+    seg.setMaxIterations(500);              //最大迭代次数，不设置的话默认迭代50次
+    seg.setInputCloud(pcl_wait_pub_down);   //输入点云
+    seg.segment(*planes, *coefficients);   //拟合点云
+    
+    pcl::ExtractIndices<PointType> extractor;//点提取对象
+    extractor.setInputCloud(cloud);
+    extractor.setIndices(inliers);
+    extractor.setNegative(true);
+    extractor.filter(*cloud_filtered);
+
 
 
     // 创建一个点云消息对象。
     sensor_msgs::msg::PointCloud2 laserCloudmsg;
     // 将等待发布的点云对象转换为点云消息对象。
-    pcl::toROSMsg(*pcl_wait_pub, laserCloudmsg);
+    pcl::toROSMsg(*cloud_filtered, laserCloudmsg);
 
     // 设置点云消息的header.stamp为当前时间。
     // laserCloudmsg.header.stamp = ros::Time().fromSec(lidar_end_time);
@@ -1148,33 +1205,43 @@ public:
         this->declare_parameter<bool>("publish.scan_publish_en", true);
         this->declare_parameter<bool>("publish.dense_publish_en", true);
         this->declare_parameter<bool>("publish.scan_bodyframe_pub_en", true);
+
         this->declare_parameter<int>("max_iteration", 4);
         this->declare_parameter<string>("map_file_path", "");
+
         this->declare_parameter<string>("common.lid_topic", "/livox/lidar");
         this->declare_parameter<string>("common.imu_topic", "/livox/imu");
         this->declare_parameter<bool>("common.time_sync_en", false);
         this->declare_parameter<double>("common.time_offset_lidar_to_imu", 0.0);
+
         this->declare_parameter<double>("filter_size_corner", 0.5);
         this->declare_parameter<double>("filter_size_surf", 0.5);
         this->declare_parameter<double>("filter_size_map", 0.5);
+        this->declare_parameter<double>("filter_size_publish_map", 0.5);
         this->declare_parameter<double>("cube_side_length", 200.);
+
         this->declare_parameter<float>("mapping.det_range", 300.);
         this->declare_parameter<double>("mapping.fov_degree", 180.);
         this->declare_parameter<double>("mapping.gyr_cov", 0.1);
         this->declare_parameter<double>("mapping.acc_cov", 0.1);
         this->declare_parameter<double>("mapping.b_gyr_cov", 0.0001);
         this->declare_parameter<double>("mapping.b_acc_cov", 0.0001);
+
         this->declare_parameter<double>("preprocess.blind", 0.01);
         this->declare_parameter<int>("preprocess.lidar_type", AVIA);
         this->declare_parameter<int>("preprocess.scan_line", 16);
         this->declare_parameter<int>("preprocess.timestamp_unit", US);
         this->declare_parameter<int>("preprocess.scan_rate", 10);
+
         this->declare_parameter<int>("point_filter_num", 2);
         this->declare_parameter<bool>("feature_extract_enable", false);
         this->declare_parameter<bool>("runtime_pos_log_enable", false);
+
         this->declare_parameter<bool>("mapping.extrinsic_est_en", true);
+
         this->declare_parameter<bool>("pcd_save.pcd_save_en", false);
         this->declare_parameter<int>("pcd_save.interval", -1);
+
         this->declare_parameter<vector<double>>("mapping.extrinsic_T", vector<double>());
         this->declare_parameter<vector<double>>("mapping.extrinsic_R", vector<double>());
 
@@ -1187,31 +1254,41 @@ public:
         this->get_parameter_or<bool>("publish.scan_publish_en", scan_pub_en, true);
         this->get_parameter_or<bool>("publish.dense_publish_en", dense_pub_en, true);
         this->get_parameter_or<bool>("publish.scan_bodyframe_pub_en", scan_body_pub_en, true);
+
         this->get_parameter_or<int>("max_iteration", NUM_MAX_ITERATIONS, 4);
         this->get_parameter_or<string>("map_file_path", map_file_path, "");
+
         this->get_parameter_or<string>("common.lid_topic", lid_topic, "/livox/lidar");
         this->get_parameter_or<string>("common.imu_topic", imu_topic, "/livox/imu");
         this->get_parameter_or<bool>("common.time_sync_en", time_sync_en, false);
         this->get_parameter_or<double>("common.time_offset_lidar_to_imu", time_diff_lidar_to_imu, 0.0);
+
         this->get_parameter_or<double>("filter_size_corner", filter_size_corner_min, 0.5);
         this->get_parameter_or<double>("filter_size_surf", filter_size_surf_min, 0.5);
         this->get_parameter_or<double>("filter_size_map", filter_size_map_min, 0.5);
+        this->get_parameter_or<double>("filter_size_publish_map",filter_size_publish_map_min,0.5);
+
         this->get_parameter_or<double>("cube_side_length", cube_len, 200.f);
+
         this->get_parameter_or<float>("mapping.det_range", DET_RANGE, 300.f);
         this->get_parameter_or<double>("mapping.fov_degree", fov_deg, 180.f);
         this->get_parameter_or<double>("mapping.gyr_cov", gyr_cov, 0.1);
         this->get_parameter_or<double>("mapping.acc_cov", acc_cov, 0.1);
         this->get_parameter_or<double>("mapping.b_gyr_cov", b_gyr_cov, 0.0001);
         this->get_parameter_or<double>("mapping.b_acc_cov", b_acc_cov, 0.0001);
+
         this->get_parameter_or<double>("preprocess.blind", p_pre->blind, 0.01);
         this->get_parameter_or<int>("preprocess.lidar_type", p_pre->lidar_type, AVIA);
         this->get_parameter_or<int>("preprocess.scan_line", p_pre->N_SCANS, 16);
         this->get_parameter_or<int>("preprocess.timestamp_unit", p_pre->time_unit, US);
         this->get_parameter_or<int>("preprocess.scan_rate", p_pre->SCAN_RATE, 10);
+
         this->get_parameter_or<int>("point_filter_num", p_pre->point_filter_num, 2);
         this->get_parameter_or<bool>("feature_extract_enable", p_pre->feature_enabled, false);
         this->get_parameter_or<bool>("runtime_pos_log_enable", runtime_pos_log, 0);
+
         this->get_parameter_or<bool>("mapping.extrinsic_est_en", extrinsic_est_en, true);
+
         this->get_parameter_or<bool>("pcd_save.pcd_save_en", pcd_save_en, false);
         this->get_parameter_or<int>("pcd_save.interval", pcd_save_interval, -1);
         this->get_parameter_or<vector<double>>("mapping.extrinsic_T", extrinT, vector<double>());
@@ -1511,9 +1588,9 @@ private:
             if (path_en)
                 publish_path(pubPath_);
             if (scan_pub_en)
-                publish_frame_world(pubLaserCloudFull_);
+                publish_frame_world(pubLaserCloudFull_);// cloud_registered
             if (scan_pub_en && scan_body_pub_en)
-                publish_frame_body(pubLaserCloudFull_body_);
+                publish_frame_body(pubLaserCloudFull_body_);//cloud_registered_body
             if (effect_pub_en)
                 publish_effect_world(pubLaserCloudEffect_);
             // if (map_pub_en) publish_map(pubLaserCloudMap_);
