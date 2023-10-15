@@ -669,7 +669,9 @@ void publish_effect_world(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::Shar
 //Laser_map
 void publish_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudMap)
 {
+    cout<<"size:"<<pcl_regToMap_wait_pub->size()<<endl;
     downRediusOutlierFilter(pcl_regToMap_wait_pub);
+    cout<<"size:"<<pcl_regToMap_wait_pub->size()<<endl;
 
     if (feats_undistort->size() <= 0 || feats_down_body->size() <= 0) return;
 
