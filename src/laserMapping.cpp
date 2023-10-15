@@ -282,25 +282,25 @@ void detectObjectsOnCloud(PointCloudXYZI::Ptr &cloud, PointCloudXYZI::Ptr &cloud
 
 // 矩阵稀疏化 体素滤波器介绍
 pcl::VoxelGrid<PointType> downSizeFilterPubilshMap;
-void downSizeFilter(PointCloudXYZI::Ptr cloud, PointCloudXYZI::Ptr cloud_down, float size)
+void downSizeFilter(PointCloudXYZI::Ptr cloud, float size)
 {
     if(cloud->size() <= 0) return;
     // *pcl_wait_pub 矩阵稀疏化
     downSizeFilterPubilshMap.setInputCloud(cloud);
     downSizeFilterPubilshMap.setLeafSize(size, size, size);
-    downSizeFilterPubilshMap.filter(*cloud_down);
+    downSizeFilterPubilshMap.filter(*cloud);
 
 }
 
 //条件和半径滤波器(Conditional or RadiusOutlier )：用于离群点滤除
 pcl::RadiusOutlierRemoval<PointType > outrem; //创建滤波器对象
-void downSizeFilter(PointCloudXYZI::Ptr cloud, const PointCloudXYZI::Ptr cloud_filtered)
+void downRediusOutlierFilter(PointCloudXYZI::Ptr cloud)
 {
     if (cloud->size() <= 0) return;
     outrem.setInputCloud(cloud); //设置输入点云
     outrem.setRadiusSearch(0.8); //设置半径为0.8的范围内找临近点
     outrem.setMinNeighborsInRadius (2); //设置查询点的邻域点集数小于2的删除
-    outrem.filter(*cloud_filtered); //执行滤波，保存过滤结果在cloud_filtered
+    outrem.filter(*cloud); //执行滤波，保存过滤结果在cloud_filtered
 }
 
 
@@ -518,6 +518,7 @@ bool sync_packages(MeasureGroup &meas)
 int process_increments = 0;
 void map_incremental()
 {
+
     PointVector PointToAdd;
     PointVector PointNoNeedDownsample;
     PointToAdd.reserve(feats_down_size);
@@ -565,7 +566,9 @@ void map_incremental()
     kdtree_incremental_time = omp_get_wtime() - st_time;
 }
 
+
 PointCloudXYZI::Ptr pcl_wait_pub(new PointCloudXYZI());
+PointCloudXYZI::Ptr pcl_regToMap_wait_pub(new PointCloudXYZI());
 PointCloudXYZI::Ptr pcl_wait_pub_down(new PointCloudXYZI());
 PointCloudXYZI::Ptr pcl_wait_save(new PointCloudXYZI());
 
@@ -578,10 +581,7 @@ void publish_frame_world(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::Share
     int size = laserCloudFullRes->points.size();
     PointCloudXYZI::Ptr laserCloudWorld(new PointCloudXYZI(size, 1));
 
-    for (int i = 0; i < size; i++)
-    {
-        RGBpointBodyToWorld(&laserCloudFullRes->points[i], &laserCloudWorld->points[i]);
-    }
+    for (int i = 0; i < size; i++) RGBpointBodyToWorld(&laserCloudFullRes->points[i], &laserCloudWorld->points[i]);
 
     sensor_msgs::msg::PointCloud2 laserCloudmsg;
     pcl::toROSMsg(*laserCloudWorld, laserCloudmsg);
@@ -590,6 +590,8 @@ void publish_frame_world(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::Share
     laserCloudmsg.header.frame_id = "camera_init";
     pubLaserCloudFull->publish(laserCloudmsg);
     publish_count -= PUBFRAME_PERIOD;
+
+    *pcl_regToMap_wait_pub += *laserCloudWorld;
 
     /**************** save map ****************/
     /* 1. make sure you have enough memories
@@ -627,6 +629,7 @@ void publish_frame_world(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::Share
 //cloud_registered_body
 void publish_frame_body(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudFull_body)
 {
+
     if(feats_undistort->size() <= 0) return;
     int size = feats_undistort->points.size();
     PointCloudXYZI::Ptr laserCloudIMUBody(new PointCloudXYZI(size, 1));
@@ -642,10 +645,12 @@ void publish_frame_body(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::Shared
     laserCloudmsg.header.frame_id = "body";
     pubLaserCloudFull_body->publish(laserCloudmsg);
     publish_count -= PUBFRAME_PERIOD;
+
 }
 
 void publish_effect_world(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudEffect)
 {
+
     PointCloudXYZI::Ptr laserCloudWorld( new PointCloudXYZI(effct_feat_num, 1));
 
     for (int i = 0; i < effct_feat_num; i++)
@@ -658,35 +663,23 @@ void publish_effect_world(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::Shar
     laserCloudFullRes3.header.stamp = get_ros_time(lidar_end_time);
     laserCloudFullRes3.header.frame_id = "camera_init";
     pubLaserCloudEffect->publish(laserCloudFullRes3);
+
 }
 
 //Laser_map
 void publish_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudMap)
 {
+    downRediusOutlierFilter(pcl_regToMap_wait_pub);
+
     if (feats_undistort->size() <= 0 || feats_down_body->size() <= 0) return;
-    PointCloudXYZI::Ptr laserCloudFullRes(dense_pub_en ? feats_undistort : feats_down_body);
 
-    int size = laserCloudFullRes->points.size();
-    cout<<"size:"<<size<<endl;
-
-    PointCloudXYZI::Ptr laserCloudWorld(new PointCloudXYZI(size, 1));
-    PointCloudXYZI::Ptr cloud_filtered(new PointCloudXYZI(size, 1));
-
-    for (int i = 0; i < size; i++)
-    {
-        RGBpointBodyToWorld(&laserCloudFullRes->points[i], &laserCloudWorld->points[i]);
-    }
-
-    //点云分割
-    detectObjectsOnCloud(laserCloudWorld, cloud_filtered);
-
-    *pcl_wait_pub += *cloud_filtered;
+    *pcl_wait_pub += *pcl_regToMap_wait_pub;
 
     // *pcl_wait_pub 矩阵稀疏化
-    downSizeFilter(pcl_wait_pub, pcl_wait_pub_down, filter_size_publish_map_min);
+    downSizeFilter(pcl_wait_pub, filter_size_publish_map_min);
 
     sensor_msgs::msg::PointCloud2 laserCloudmsg;
-    pcl::toROSMsg(*pcl_wait_pub_down, laserCloudmsg);
+    pcl::toROSMsg(*pcl_wait_pub, laserCloudmsg);
     
     // laserCloudmsg.header.stamp = ros::Time().fromSec(lidar_end_time);
     laserCloudmsg.header.stamp = get_ros_time(lidar_end_time);
@@ -698,12 +691,15 @@ void publish_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub
     // laserCloudMap.header.stamp = get_ros_time(lidar_end_time);
     // laserCloudMap.header.frame_id = "camera_init";
     // pubLaserCloudMap->publish(laserCloudMap);
+
 }
 
 void save_to_pcd()
 {
+
     pcl::PCDWriter pcd_writer;
     pcd_writer.writeBinary(map_file_path, *pcl_wait_pub);
+
 }
 
 template<typename T>
