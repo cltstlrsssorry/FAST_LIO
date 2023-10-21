@@ -1,10 +1,8 @@
 #include "preprocess.h"
-
-#include <pcl/common/common.h>
+#include "segment.h"
 
 #define RETURN0 0x00
 #define RETURN0AND1 0x10
-
 
 Preprocess::Preprocess() : feature_enabled(0), lidar_type(AVIA), blind(0.01), point_filter_num(1)
 {
@@ -31,6 +29,7 @@ Preprocess::Preprocess() : feature_enabled(0), lidar_type(AVIA), blind(0.01), po
   jump_down_limit = cos(jump_down_limit / 180 * M_PI);
   cos160 = cos(cos160 / 180 * M_PI);
   smallp_intersect = cos(smallp_intersect / 180 * M_PI);
+
 }
 
 
@@ -51,7 +50,9 @@ void Preprocess::set(bool feat_en, int lid_type, double bld, int pfilt_num)
 void Preprocess::process(const livox_ros_driver2::msg::CustomMsg::UniquePtr &msg, PointCloudXYZI::Ptr& pcl_out)
 {
   avia_handler(msg);
+
   *pcl_out = pl_surf;
+
 }
 
 
@@ -95,6 +96,7 @@ void Preprocess::process(const sensor_msgs::msg::PointCloud2::UniquePtr &msg, Po
       break;
   }
   *pcl_out = pl_surf;
+
 }
 
 
@@ -111,6 +113,10 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
   pl_surf.reserve(plsize);
   pl_full.resize(plsize);
 
+  int *idtrans = (int *)calloc(plsize, sizeof(int));
+  float *data = (float *)calloc(plsize * 4, sizeof(float));
+  int point_num = 0;
+
   for (int i = 0; i < N_SCANS; i++)
   {
     pl_buff[i].clear();
@@ -122,17 +128,30 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
   {
     for (uint i = 1; i < plsize; i++)
     {
-      if ((msg->points[i].line < N_SCANS) &&
-          ((msg->points[i].tag & 0x30) == 0x10 || (msg->points[i].tag & 0x30) == 0x00))
+      if ((msg->points[i].line < N_SCANS) && ((msg->points[i].tag & 0x30) == 0x10 || (msg->points[i].tag & 0x30) == 0x00))
       {
         pl_full[i].x = msg->points[i].x;
         pl_full[i].y = msg->points[i].y;
         pl_full[i].z = msg->points[i].z;
         pl_full[i].intensity = msg->points[i].reflectivity;
-        pl_full[i].curvature =
-            msg->points[i].offset_time / float(1000000);  // use curvature as time of each laser points
+        pl_full[i].curvature = msg->points[i].offset_time / float(1000000);  // use curvature as time of each laser points
 
         bool is_new = false;
+        data[i * 4 + 0] = msg->points[i].x;
+        data[i * 4 + 1] = msg->points[i].y;
+        data[i * 4 + 2] = msg->points[i].z;
+        data[i * 4 + 3] = msg->points[i].reflectivity;
+        point_num++;
+      }
+    }
+
+    PCSeg pcseg;
+    pcseg.DoSeg(idtrans, data, plsize);
+
+    for (uint i = 1; i < point_num; i++)
+    {
+      if (idtrans[i] < 9)
+      {
         if ((abs(pl_full[i].x - pl_full[i - 1].x) > 1e-7) || (abs(pl_full[i].y - pl_full[i - 1].y) > 1e-7) ||
             (abs(pl_full[i].z - pl_full[i - 1].z) > 1e-7))
         {
@@ -140,10 +159,12 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
         }
       }
     }
+
     static int count = 0;
     static double time = 0.0;
     count++;
     double t0 = omp_get_wtime();
+
     for (int j = 0; j < N_SCANS; j++)
     {
       if (pl_buff[j].size() <= 5)
@@ -173,18 +194,17 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
   {
     for (uint i = 1; i < plsize; i++)
     {
-      if ((msg->points[i].line < N_SCANS) &&
-          ((msg->points[i].tag & 0x30) == 0x10 || (msg->points[i].tag & 0x30) == 0x00))
+      if ((msg->points[i].line < N_SCANS) && ((msg->points[i].tag & 0x30) == 0x10 || (msg->points[i].tag & 0x30) == 0x00))
       {
         valid_num++;
+
         if (valid_num % point_filter_num == 0)
         {
           pl_full[i].x = msg->points[i].x;
           pl_full[i].y = msg->points[i].y;
           pl_full[i].z = msg->points[i].z;
           pl_full[i].intensity = msg->points[i].reflectivity;
-          pl_full[i].curvature = msg->points[i].offset_time /
-                                 float(1000000);  // use curvature as time of each laser points, curvature unit: ms
+          pl_full[i].curvature = msg->points[i].offset_time /float(1000000);  // use curvature as time of each laser points, curvature unit: ms
 
           if ((abs(pl_full[i].x - pl_full[i - 1].x) > 1e-7) || (abs(pl_full[i].y - pl_full[i - 1].y) > 1e-7) ||
               (abs(pl_full[i].z - pl_full[i - 1].z) > 1e-7) &&
@@ -194,11 +214,13 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
             pl_surf.push_back(pl_full[i]);
           }
         }
+        
       }
     }
-  }
-}
 
+  }
+
+}
 
 void Preprocess::oust64_handler(const sensor_msgs::msg::PointCloud2::UniquePtr &msg)
 {

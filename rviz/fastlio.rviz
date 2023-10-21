@@ -6,6 +6,8 @@ Panels:
       Expanded:
         - /Global Options1
         - /Status1
+        - /CloudEffected1
+        - /CloudMap1
       Splitter Ratio: 0.5
     Tree Height: 549
   - Class: rviz_common/Selection
@@ -126,19 +128,19 @@ Visualization Manager:
       Channel Name: intensity
       Class: rviz_default_plugins/PointCloud2
       Color: 255; 255; 255
-      Color Transformer: intensity
+      Color Transformer: Intensity
       Decay Time: 30
       Enabled: true
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 186
+      Max Intensity: 150
       Min Color: 0; 0; 0
       Min Intensity: 0
       Name: CloudRegistered
       Position Transformer: XYZ
       Selectable: true
       Size (Pixels): 3
-      Size (m): 0.02000000074505806
+      Size (m): 0.020000001415610313
       Style: points
       Topic:
         Depth: 5
@@ -161,8 +163,8 @@ Visualization Manager:
       Class: rviz_default_plugins/PointCloud2
       Color: 255; 255; 255
       Color Transformer: Intensity
-      Decay Time: 0
-      Enabled: true
+      Decay Time: 30
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
       Max Intensity: 184
@@ -171,9 +173,9 @@ Visualization Manager:
       Name: CloudEffected
       Position Transformer: XYZ
       Selectable: true
-      Size (Pixels): 3
-      Size (m): 0.10000000149011612
-      Style: Flat Squares
+      Size (Pixels): 10
+      Size (m): 2
+      Style: Points
       Topic:
         Depth: 5
         Durability Policy: Volatile
@@ -183,7 +185,7 @@ Visualization Manager:
         Value: /cloud_effected
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
@@ -194,19 +196,19 @@ Visualization Manager:
       Channel Name: intensity
       Class: rviz_default_plugins/PointCloud2
       Color: 255; 255; 255
-      Color Transformer: intensity
+      Color Transformer: Intensity
       Decay Time: 0
-      Enabled: true
+      Enabled: false
       Invert Rainbow: false
       Max Color: 255; 255; 255
-      Max Intensity: 255
+      Max Intensity: -999999
       Min Color: 0; 0; 0
-      Min Intensity: 0
+      Min Intensity: 999999
       Name: CloudMap
       Position Transformer: XYZ
       Selectable: true
       Size (Pixels): 1.5
-      Size (m): 0.01500000074505806
+      Size (m): 0.015000000596046448
       Style: points
       Topic:
         Depth: 5
@@ -217,7 +219,7 @@ Visualization Manager:
         Value: /Laser_map
       Use Fixed Frame: true
       Use rainbow: true
-      Value: true
+      Value: false
   Enabled: true
   Global Options:
     Background Color: 0; 0; 0
@@ -264,7 +266,7 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz_default_plugins/Orbit
-      Distance: 216.99887084960938
+      Distance: 24.90389633178711
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.05999999865889549
         Stereo Focal Distance: 1
@@ -279,10 +281,10 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: 1.5697963237762451
+      Pitch: 1.1047965288162231
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz_default_plugins)
-      Yaw: 4.88355827331543
+      Yaw: 0.9353911876678467
     Saved: ~
 Window Geometry:
   Displays:

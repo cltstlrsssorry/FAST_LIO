@@ -2,9 +2,9 @@
     ros__parameters:
         map_file_path: "./test.pcd"
         feature_extract_enable: false
-        filter_size_map: 0.5
-        filter_size_surf: 0.5
-        filter_size_publish_map: 0.05
+        filter_size_map: 0.05
+        filter_size_surf: 0.05
+        filter_size_publish_map: 0.02
         common:
             lid_topic:  "/livox/lidar"
             imu_topic:  "/livox/imu"
@@ -25,7 +25,7 @@
             b_acc_cov: 0.0001
             b_gyr_cov: 0.0001
             fov_degree:    360.0
-            det_range:     60.0
+            det_range:     260.0
             extrinsic_est_en:  false      # true: enable the online estimation of IMU-LiDAR extrinsic
             extrinsic_T: [ -0.011, -0.0234, 0.044 ]
             extrinsic_R: [ 0.9999161, 0.0026676,  0.0126707,
