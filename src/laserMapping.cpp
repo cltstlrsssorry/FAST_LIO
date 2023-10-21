@@ -49,6 +49,8 @@
 #include <nav_msgs/msg/path.hpp>
 #include <visualization_msgs/msg/marker.hpp>
 
+
+
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
@@ -88,8 +90,8 @@ int kdtree_size_st = 0, kdtree_size_end = 0, add_point_size = 0, kdtree_delete_c
 
 // runtime_pos_log: 是否启用运行时位置日志pcd_save_en: 是否保存pcd文件 time_sync_en: 是否进行时间同步 extrinsic_est_en: 是否在线标定外参 path_en: 是否发布路径
 bool runtime_pos_log = false, pcd_save_en = false, time_sync_en = false, extrinsic_est_en = true, path_en = true;
-/**************************/
 
+/**************************/
 float res_last[100000] = {0.0};      // res_last[]: 上一次迭代的残差数组
 float DET_RANGE = 300.0f;            // DET_RANGE: 检测范围距离
 const float MOV_THRESHOLD = 1.5f;    // MOV_THRESHOLD: 运动检测阈值
@@ -99,40 +101,23 @@ double time_diff_lidar_to_imu = 0.0; // time_diff_lidar_to_imu: 激光雷达和I
 mutex mtx_buffer;
 condition_variable sig_buffer;
 
-// root_dir: 数据集根目录
-string root_dir = ROOT_DIR;
-// map_file_path: 地图保存路径 lid_topic/imu_topic: 传感器topic
-string map_file_path, lid_topic, imu_topic;
-
-// res_mean_last: 上次优化的平均残差
-double res_mean_last = 0.05, total_residual = 0.0;
-
-// last_timestamp_lidar/imu: 各传感器最后时间戳
-double last_timestamp_lidar = 0, last_timestamp_imu = -1.0;
-
-// gyr_cov等: IMU的协方差矩阵
-double gyr_cov = 0.1, acc_cov = 0.1, b_gyr_cov = 0.0001, b_acc_cov = 0.0001;
-
-// filter_size_xxx_min: 滤波参数 fov_deg: 激光视场角
-double filter_size_corner_min = 0, filter_size_surf_min = 0, filter_size_map_min = 0, fov_deg = 0, filter_size_publish_map_min=0;
-
-// cube_len: 地图分块长度
+string root_dir = ROOT_DIR;// root_dir: 数据集根目录
+string map_file_path, lid_topic, imu_topic;// map_file_path: 地图保存路径 lid_topic/imu_topic: 传感器topic
+double res_mean_last = 0.05, total_residual = 0.0;// res_mean_last: 上次优化的平均残差
+double last_timestamp_lidar = 0, last_timestamp_imu = -1.0;// last_timestamp_lidar/imu: 各传感器最后时间戳
+double gyr_cov = 0.1, acc_cov = 0.1, b_gyr_cov = 0.0001, b_acc_cov = 0.0001;// gyr_cov等: IMU的协方差矩阵
+double filter_size_corner_min = 0, filter_size_surf_min = 0, filter_size_map_min = 0, fov_deg = 0;// filter_size_xxx_min: 滤波参数 fov_deg: 激光视场角
 double cube_len = 0, HALF_FOV_COS = 0, FOV_DEG = 0, total_distance = 0, lidar_end_time = 0, first_lidar_time = 0.0;
 
-// effct_feat_num: 有效特征点数 time_log_counter: 时间日志计数
 int effct_feat_num = 0, time_log_counter = 0, scan_count = 0, publish_count = 0;
 int iterCount = 0, feats_down_size = 0, NUM_MAX_ITERATIONS = 0, laserCloudValidNum = 0, pcd_save_interval = -1, pcd_index = 0;
+
 bool point_selected_surf[100000] = {0};
 
-// flg_exit:退出标志 flg_EKF_inited: EKF初始化标志
-bool lidar_pushed, flg_first_scan = true, flg_exit = false, flg_EKF_inited;
+bool lidar_pushed, flg_first_scan = true, flg_exit = false, flg_EKF_inited;// flg_exit:退出标志 flg_EKF_inited: EKF初始化标志
 // 在C++中，bool类型的变量默认值是false。如果您没有为bool类型的变量赋值，那么它的值将默认为false
-
-// scan_pub_en等: 发布控制标志
-bool scan_pub_en = false, dense_pub_en = false, scan_body_pub_en = false;
-
-// is_first_lidar: 第一帧标志
-bool is_first_lidar = true;
+bool scan_pub_en = false, dense_pub_en = false, scan_body_pub_en = false;// scan_pub_en等: 发布控制标志
+bool is_first_lidar = true;// is_first_lidar: 第一帧标志
 
 vector<vector<int>> pointSearchInd_surf; // pointSearchInd_surf: 搜索的点的索引
 vector<BoxPointType> cub_needrm;         // cub_needrm: 需要移除的cube
@@ -207,7 +192,6 @@ void SigHandle(int sig)
  */
 inline void dump_lio_state_to_log(FILE *fp)
 {
-
     V3D rot_ang(Log(state_point.rot.toRotationMatrix())); // V3D是一个表示三维向量的类，可能是一个自定义类型，用于表示点的坐标。
 
     // rot_ang是一个表示旋转角度的向量。
@@ -415,9 +399,11 @@ void lasermap_fov_segment()
     }
     if (!need_move)
         return;
+    
     BoxPointType New_LocalMap_Points, tmp_boxpoints;
     New_LocalMap_Points = LocalMap_Points;
     float mov_dist = max((cube_len - 2.0 * MOV_THRESHOLD * DET_RANGE) * 0.5 * 0.9, double(DET_RANGE * (MOV_THRESHOLD - 1)));
+
     for (int i = 0; i < 3; i++)
     {
         tmp_boxpoints = LocalMap_Points;
@@ -436,6 +422,7 @@ void lasermap_fov_segment()
             cub_needrm.push_back(tmp_boxpoints);
         }
     }
+
     LocalMap_Points = New_LocalMap_Points;
 
     points_cache_collect();
@@ -650,11 +637,15 @@ bool sync_packages(MeasureGroup &meas)
 int process_increments = 0;
 void map_incremental()
 {
+
     // 创建两个点向量PointToAdd和PointNoNeedDownsample，并将其容量设置为feats_down_size。
     PointVector PointToAdd;
     PointVector PointNoNeedDownsample;
     PointToAdd.reserve(feats_down_size);
     PointNoNeedDownsample.reserve(feats_down_size);
+
+    PointVector pointIdxRadiusSearch;
+
 
     /**
      * 遍历feats_down_size个点，对每个点进行以下操作：
@@ -670,38 +661,54 @@ void map_incremental()
     {
         /* transform to world frame */
         pointBodyToWorld(&(feats_down_body->points[i]), &(feats_down_world->points[i]));
+
+        PointType searchPoint = feats_down_world->points[i];
+        cout << searchPoint.x << " " << searchPoint.y << " " << searchPoint.z << " ";
+        PointVector pointIdxRadiusSearch;
+        float radius = 0.08;
+
         /* decide if need add to map */
-        if (!Nearest_Points[i].empty() && flg_EKF_inited)
+
+        //Nearest_Points[i]不为空，并且flg_EKF_inited为真。
+        //这意味着在之前的处理中，已经找到了与当前点相邻的点，并且已经初始化了扩展卡尔曼滤波器（EKF）。
+        if (pointIdxRadiusSearch.size() > 0)
         {
-            const PointVector &points_near = Nearest_Points[i];
-            bool need_add = true;
-            BoxPointType Box_of_Point;
-            PointType downsample_result, mid_point;
-            mid_point.x = floor(feats_down_world->points[i].x / filter_size_map_min) * filter_size_map_min + 0.5 * filter_size_map_min;
-            mid_point.y = floor(feats_down_world->points[i].y / filter_size_map_min) * filter_size_map_min + 0.5 * filter_size_map_min;
-            mid_point.z = floor(feats_down_world->points[i].z / filter_size_map_min) * filter_size_map_min + 0.5 * filter_size_map_min;
-            float dist = calc_dist(feats_down_world->points[i], mid_point);
-            if (fabs(points_near[0].x - mid_point.x) > 0.5 * filter_size_map_min && fabs(points_near[0].y - mid_point.y) > 0.5 * filter_size_map_min && fabs(points_near[0].z - mid_point.z) > 0.5 * filter_size_map_min)
+            if (!Nearest_Points[i].empty() && flg_EKF_inited)
             {
-                PointNoNeedDownsample.push_back(feats_down_world->points[i]);
-                continue;
-            }
-            for (int readd_i = 0; readd_i < NUM_MATCH_POINTS; readd_i++)
-            {
-                if (points_near.size() < NUM_MATCH_POINTS)
-                    break;
-                if (calc_dist(points_near[readd_i], mid_point) < dist)
+                const PointVector &points_near = Nearest_Points[i];
+                bool need_add = true;
+
+                BoxPointType Box_of_Point; // BoxPointType Box_of_Point;：这行代码定义了一个名为Box_of_Point的变量，用于存储当前点的包围盒。
+                PointType downsample_result, mid_point;
+
+                // 两个PointType类型的变量，downsample_result用于存储降采样后的点，mid_point用于存储中间点。
+                mid_point.x = floor(feats_down_world->points[i].x / filter_size_map_min) * filter_size_map_min + 0.5 * filter_size_map_min;
+                mid_point.y = floor(feats_down_world->points[i].y / filter_size_map_min) * filter_size_map_min + 0.5 * filter_size_map_min;
+                mid_point.z = floor(feats_down_world->points[i].z / filter_size_map_min) * filter_size_map_min + 0.5 * filter_size_map_min;
+                float dist = calc_dist(feats_down_world->points[i], mid_point);
+
+                if (fabs(points_near[0].x - mid_point.x) > 0.5 * filter_size_map_min && fabs(points_near[0].y - mid_point.y) > 0.5 * filter_size_map_min && fabs(points_near[0].z - mid_point.z) > 0.5 * filter_size_map_min)
                 {
-                    need_add = false;
-                    break;
+                    PointNoNeedDownsample.push_back(feats_down_world->points[i]);
+                    continue;
                 }
+                for (int readd_i = 0; readd_i < NUM_MATCH_POINTS; readd_i++)
+                {
+                    if (points_near.size() < NUM_MATCH_POINTS)
+                        break;
+                    if (calc_dist(points_near[readd_i], mid_point) < dist)
+                    {
+                        need_add = false;
+                        break;
+                    }
+                }
+                if (need_add)
+                    PointToAdd.push_back(feats_down_world->points[i]);
             }
-            if (need_add)
+            else
+            {
                 PointToAdd.push_back(feats_down_world->points[i]);
-        }
-        else
-        {
-            PointToAdd.push_back(feats_down_world->points[i]);
+            }
         }
     }
 
@@ -911,9 +918,7 @@ void publish_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub
     extractor.setIndices(inliers);
     extractor.setNegative(true);
     extractor.filter(*cloud_filtered);
-
-
-
+    
     // 创建一个点云消息对象。
     sensor_msgs::msg::PointCloud2 laserCloudmsg;
     // 将等待发布的点云对象转换为点云消息对象。
@@ -1424,206 +1429,181 @@ private:
     void timer_callback()
     {
         // 检查是否成功同步了激光雷达数据包。
-        if (sync_packages(Measures))
+        if (! sync_packages(Measures))
         {
-            // 如果是第一个扫描，则记录第一个激光雷达时间。
-            if (flg_first_scan)
+            return;
+        }
+
+        // 如果是第一个扫描，则记录第一个激光雷达时间。
+        if (flg_first_scan)
+        {
+            first_lidar_time = Measures.lidar_beg_time;
+
+            // 设置 IMU 的时间基准。
+            p_imu->first_lidar_time = first_lidar_time;
+
+            // 将第一个扫描标志设置为 false。
+            flg_first_scan = false;
+
+            return;
+        }
+
+        double t0, t1, t2, t3, t4, t5, match_start, solve_start, svd_time; // 定义时间变量。
+
+        match_time = 0;           // match_time：用于记录点云配准的时间开销。
+        kdtree_search_time = 0.0; // kdtree_search_time：用于记录 KDTree 搜索的时间开销。
+        solve_time = 0;           // solve_time：用于记录迭代卡尔曼滤波器更新的时间开销。
+        solve_const_H_time = 0;   // solve_const_H_time：用于记录构造 H 矩阵的时间开销。
+        svd_time = 0;             // svd_time：用于记录 SVD 分解的时间开销。
+        t0 = omp_get_wtime();     // t0 = omp_get_wtime()：用于记录当前时间，作为计算各种时间开销的起点。
+
+        p_imu->Process(Measures, kf, feats_undistort);                          // 预积分模型处理 IMU 数据。
+        state_point = kf.get_x();                                               // 获取卡尔曼滤波器的状态量。
+        pos_lid = state_point.pos + state_point.rot * state_point.offset_T_L_I; // 计算激光雷达在世界坐标系中的位置。
+
+        if (feats_undistort->empty() || (feats_undistort == NULL)) // 检查点云是否为空。
+        {
+            RCLCPP_WARN(this->get_logger(), "No point, skip this scan!\n"); // 如果点云为空，则跳过该扫描。
+            return;
+        }
+
+        // 检查 EKF 是否已初始化。
+        flg_EKF_inited = (Measures.lidar_beg_time - first_lidar_time) < INIT_TIME ? false : true;
+        /*** Segment the map in lidar FOV ***/
+        lasermap_fov_segment(); // 将地图分割到激光雷达的视场中。
+
+        /*** downsample the feature points in a scan ***/
+        downSizeFilterSurf.setInputCloud(feats_undistort); // 设置下采样滤波器的输入点云。
+        downSizeFilterSurf.filter(*feats_down_body);       // 执行下采样滤波器，将结果存储在 feats_down_body 中。
+        t1 = omp_get_wtime();                              // 记录当前时间，作为计算各种时间开销的起点。
+        feats_down_size = feats_down_body->points.size();  // 获取下采样后的点云数量。
+
+        
+
+        /*** initialize the map kdtree ***/
+        if (ikdtree.Root_Node == nullptr) // 检查kdtree的根节点是否为空。如果是，表示需要初始化kdtree。
+        {
+            RCLCPP_INFO(this->get_logger(), "Initialize the map kdtree"); // 在日志中记录初始化kdtree的信息。
+            if (feats_down_size > 5)                                      // 判断过滤后的点云数量是否小于5。如果是，则继续执行以下操作。
             {
-                first_lidar_time = Measures.lidar_beg_time;
-
-                // 设置 IMU 的时间基准。
-                p_imu->first_lidar_time = first_lidar_time;
-
-                // 将第一个扫描标志设置为 false。
-                flg_first_scan = false;
-
-                return;
-            }
-
-            double t0, t1, t2, t3, t4, t5, match_start, solve_start, svd_time; // 定义时间变量。
-
-            match_time = 0;           // match_time：用于记录点云配准的时间开销。
-            kdtree_search_time = 0.0; // kdtree_search_time：用于记录 KDTree 搜索的时间开销。
-            solve_time = 0;           // solve_time：用于记录迭代卡尔曼滤波器更新的时间开销。
-            solve_const_H_time = 0;   // solve_const_H_time：用于记录构造 H 矩阵的时间开销。
-            svd_time = 0;             // svd_time：用于记录 SVD 分解的时间开销。
-            t0 = omp_get_wtime();     // t0 = omp_get_wtime()：用于记录当前时间，作为计算各种时间开销的起点。
-
-            p_imu->Process(Measures, kf, feats_undistort);                          // IMU 处理数据包，并将结果存储在 kf 和 feats_undistort 中。
-            state_point = kf.get_x();                                               // 获取当前状态估计。
-            pos_lid = state_point.pos + state_point.rot * state_point.offset_T_L_I; // 计算激光雷达坐标系下的位置。
-
-            if (feats_undistort->empty() || (feats_undistort == NULL)) // 检查点云是否为空。
-            {
-                RCLCPP_WARN(this->get_logger(), "No point, skip this scan!\n"); // 如果点云为空，则跳过该扫描。
-                return;
-            }
-
-            // 检查 EKF 是否已初始化。
-            flg_EKF_inited = (Measures.lidar_beg_time - first_lidar_time) < INIT_TIME ? false : true;
-            /*** Segment the map in lidar FOV ***/
-            lasermap_fov_segment(); // 进行激光雷达地图的扇形分割。
-
-            /*** downsample the feature points in a scan ***/
-            downSizeFilterSurf.setInputCloud(feats_undistort); // 设置点云过滤器参数。
-            downSizeFilterSurf.filter(*feats_down_body);       // 应用点云过滤器。
-            t1 = omp_get_wtime();                              // 记录过滤后的点云数量和时间。
-            feats_down_size = feats_down_body->points.size();  // 获取过滤后的点云数量。
-
-            /*** initialize the map kdtree ***/
-            if (ikdtree.Root_Node == nullptr) // 检查kdtree的根节点是否为空。如果是，表示需要初始化kdtree。
-            {
-                RCLCPP_INFO(this->get_logger(), "Initialize the map kdtree"); // 在日志中记录初始化kdtree的信息。
-                if (feats_down_size > 5)                                      // 判断过滤后的点云数量是否小于5。如果是，则继续执行以下操作。
+                ikdtree.set_downsample_param(filter_size_map_min); // 设置kdtree的下采样参数。
+                feats_down_world->resize(feats_down_size);         // 创建一个新的点云对象，并将过滤后的点云复制到新对象中。
+                for (int i = 0; i < feats_down_size; i++)          // 遍历新创建的点云对象中的点。
                 {
-                    ikdtree.set_downsample_param(filter_size_map_min); // 设置kdtree的下采样参数。
-                    feats_down_world->resize(feats_down_size);         // 创建一个新的点云对象，并将过滤后的点云复制到新对象中。
-                    for (int i = 0; i < feats_down_size; i++)          // 遍历新创建的点云对象中的点。
-                    {
-                        pointBodyToWorld(&(feats_down_body->points[i]), &(feats_down_world->points[i])); // 将点从body坐标系转换到world坐标系。
-                    }
-                    ikdtree.Build(feats_down_world->points); // 使用ikdtree对象构建新的点云。
+                    pointBodyToWorld(&(feats_down_body->points[i]), &(feats_down_world->points[i])); // 将点从body坐标系转换到world坐标系。
                 }
-                return;
+                ikdtree.Build(feats_down_world->points); // 使用ikdtree对象构建新的点云。
             }
+            return;
+        }
 
-            int featsFromMapNum = ikdtree.validnum(); // 获取kdtree中的有效点数量。
-            kdtree_size_st = ikdtree.size();          // 记录kdtree的大小。
+        int featsFromMapNum = ikdtree.validnum(); // 获取kdtree中的有效点数量。
+        kdtree_size_st = ikdtree.size();          // 记录kdtree的大小。
 
-            // cout<<"[ mapping ]: In num: "<<feats_undistort->points.size()<<" downsamp "<<feats_down_size<<" Map num: "<<featsFromMapNum<<"effect num:"<<effct_feat_num<<endl;
+        // cout<<"[ mapping ]: In num: "<<feats_undistort->points.size()<<" downsamp "<<feats_down_size<<" Map num: "<<featsFromMapNum<<"effect num:"<<effct_feat_num<<endl;
 
-            /*** ICP and iterated Kalman filter update ***/
-            if (feats_down_size < 5) // 判断过滤后的点云数量是否小于5。如果是，则执行以下操作：
-            {
-                RCLCPP_WARN(this->get_logger(), "No point, skip this scan!\n"); // 在日志中记录跳过该扫描的消息。
-                return;                                                         // 直接返回，不再执行后续代码。
-            }
+        /*** ICP and iterated Kalman filter update ***/
+        if (feats_down_size < 5) // 判断过滤后的点云数量是否小于5。如果是，则执行以下操作：
+        {
+            RCLCPP_WARN(this->get_logger(), "No point, skip this scan!\n"); // 在日志中记录跳过该扫描的消息。
+            return;                                                         // 直接返回，不再执行后续代码。
+        }
 
-            normvec->resize(feats_down_size);          // 重新调整 normvec 的大小。
-            feats_down_world->resize(feats_down_size); // 重新调整 feats_down_world 的大小。
+        normvec->resize(feats_down_size);          // 重新调整 normvec 的大小。
+        feats_down_world->resize(feats_down_size); // 重新调整 feats_down_world 的大小。
 
-            V3D ext_euler = SO3ToEuler(state_point.offset_R_L_I); // 将旋转矩阵转换为欧拉角。
+        V3D ext_euler = SO3ToEuler(state_point.offset_R_L_I); // 将旋转矩阵转换为欧拉角。
 
-            // 将一些数据打印到文件中，包括scan开始时间与第一次scan的时间之差、旋转矩阵、位置向量、偏移矩阵、速度向量和姿态（欧拉角）。
-            fout_pre << setw(20) << Measures.lidar_beg_time - first_lidar_time << " " << euler_cur.transpose() << " " << state_point.pos.transpose() << " " << ext_euler.transpose() << " " << state_point.offset_T_L_I.transpose() << " " << state_point.vel.transpose()
-                     << " " << state_point.bg.transpose() << " " << state_point.ba.transpose() << " " << state_point.grav << endl;
+        // 将一些数据打印到文件中，包括scan开始时间与第一次scan的时间之差、旋转矩阵、位置向量、偏移矩阵、速度向量和姿态（欧拉角）。
+        fout_pre << setw(20) << Measures.lidar_beg_time - first_lidar_time << " " << euler_cur.transpose() << " " << state_point.pos.transpose() << " " << ext_euler.transpose() << " " << state_point.offset_T_L_I.transpose() << " " << state_point.vel.transpose()
+                    << " " << state_point.bg.transpose() << " " << state_point.ba.transpose() << " " << state_point.grav << endl;
 
-            if (0) // If you need to see map point, change to "if(1)"
-            {
-                // 将ikdtree中的点云数据交换到PCL_Storage向量中。
-                PointVector().swap(ikdtree.PCL_Storage);
+        if (1) // If you need to see map point, change to "if(1)"
+        {
+            PointVector().swap(ikdtree.PCL_Storage);// 清空ikdtree.PCL_Storage向量。
+            ikdtree.flatten(ikdtree.Root_Node, ikdtree.PCL_Storage, NOT_RECORD);// 将kdtree中的点云数据复制到ikdtree.PCL_Storage向量中。
+            featsFromMap->clear();// 清空featsFromMap点云。
+            featsFromMap->points = ikdtree.PCL_Storage;// 将ikdtree.PCL_Storage向量中的点云数据复制到featsFromMap点云中。
+        }
 
-                // 将ikdtree的根节点和PCL_Storage向量传递给flatten函数，将ikdtree中的点云数据展开并存储在PCL_Storage向量中。
-                ikdtree.flatten(ikdtree.Root_Node, ikdtree.PCL_Storage, NOT_RECORD);
+        pointSearchInd_surf.resize(feats_down_size);// 重新调整pointSearchInd_surf向量的大小为feats_down_size。
+        Nearest_Points.resize(feats_down_size);// 重新调整Nearest_Points向量的大小为feats_down_size。
+        int rematch_num = 0;// rematch_num：用于记录重新匹配的点云数量。
 
-                // 清空featsFromMap向量。
-                featsFromMap->clear();
+        // 将nearest_search_en标志设置为true。
+        bool nearest_search_en = true;
 
-                // 将ikdtree中的点云数据复制到featsFromMap向量中。
-                featsFromMap->points = ikdtree.PCL_Storage;
-            }
+        t2 = omp_get_wtime();
 
-            // 重新调整pointSearchInd_surf向量的大小为feats_down_size。
-            pointSearchInd_surf.resize(feats_down_size);
+        /*** iterated state estimation ***/
+        double t_update_start = omp_get_wtime();// 记录update_iterated_dyn_share_modified函数的开始时间。
+        double solve_H_time = 0;// 记录H矩阵求解时间。
+        kf.update_iterated_dyn_share_modified(LASER_POINT_COV, solve_H_time);// 使用Kalman滤波器更新运动模型，传入的参数包括观测矩阵和H矩阵求解时间。
+        state_point = kf.get_x();// 获取滤波器的状态向量。
+        euler_cur = SO3ToEuler(state_point.rot);// 将旋转矩阵转换为欧拉角。
+        pos_lid = state_point.pos + state_point.rot * state_point.offset_T_L_I;// 计算点云坐标系下的位置。
 
-            // 重新调整Nearest_Points向量的大小为feats_down_size。
-            Nearest_Points.resize(feats_down_size);
+        // 将旋转矩阵的系数复制到geoQuat向量中。
+        geoQuat.x = state_point.rot.coeffs()[0];
+        geoQuat.y = state_point.rot.coeffs()[1];
+        geoQuat.z = state_point.rot.coeffs()[2];
+        geoQuat.w = state_point.rot.coeffs()[3];
 
-            // 将rematch_num重置为0。
-            int rematch_num = 0;
+        double t_update_end = omp_get_wtime();// 记录update_iterated_dyn_share_modified函数的结束时间。
 
-            // 将nearest_search_en标志设置为true。
-            bool nearest_search_en = true;
+        /******* Publish odometry *******/
+        publish_odometry(pubOdomAftMapped_, tf_broadcaster_);// 发布odometry消息。
 
-            t2 = omp_get_wtime();
+        /*** add the feature points to map kdtree ***/
+        t3 = omp_get_wtime();
+        map_incremental();
+        t5 = omp_get_wtime();// 记录map_incremental函数的结束时间。
 
-            /*** iterated state estimation ***/
+        /**
+         * MSDN中的定义：Returns a value in seconds of the time elapsed from some point，返回的是一个观察点的时间值，
+         * 这个时间将一直在程序运行时持续，也就是说，在程序运行前使用和程序运行结束使用，这个时间差是整个程序运行的时间，
+         * 而不是clock得到的cpu运行的时间
+         */
 
-            // 记录update_iterated_dyn_share_modified函数的开始时间。
-            double t_update_start = omp_get_wtime();
+        /******* Publish points *******/
+        if (path_en)
+            publish_path(pubPath_);
+        if (scan_pub_en)
+            publish_frame_world(pubLaserCloudFull_);// cloud_registered
+        if (scan_pub_en && scan_body_pub_en)
+            publish_frame_body(pubLaserCloudFull_body_);//cloud_registered_body
+        if (effect_pub_en)
+            publish_effect_world(pubLaserCloudEffect_);
+        // if (map_pub_en) publish_map(pubLaserCloudMap_);
 
-            // 记录H矩阵求解时间。
-            double solve_H_time = 0;
-
-            // 使用Kalman滤波器更新运动模型，传入的参数包括观测矩阵和H矩阵求解时间。
-            kf.update_iterated_dyn_share_modified(LASER_POINT_COV, solve_H_time);
-
-            // 获取滤波器的状态向量。
-            state_point = kf.get_x();
-
-            // 将旋转矩阵转换为欧拉角。
-            euler_cur = SO3ToEuler(state_point.rot);
-
-            // 计算点云坐标系下的位置。
-            pos_lid = state_point.pos + state_point.rot * state_point.offset_T_L_I;
-
-            // 将旋转矩阵的系数复制到geoQuat向量中。
-            geoQuat.x = state_point.rot.coeffs()[0];
-            geoQuat.y = state_point.rot.coeffs()[1];
-            geoQuat.z = state_point.rot.coeffs()[2];
-            geoQuat.w = state_point.rot.coeffs()[3];
-
-            // 记录update_iterated_dyn_share_modified函数的结束时间。
-            double t_update_end = omp_get_wtime();
-
-            /******* Publish odometry *******/
-
-            // 发布odometry消息。
-            publish_odometry(pubOdomAftMapped_, tf_broadcaster_);
-
-            /*** add the feature points to map kdtree ***/
-            t3 = omp_get_wtime();
-            map_incremental();
-
-            // 记录map_incremental函数的结束时间。
-            t5 = omp_get_wtime();
-
-            /**
-             * MSDN中的定义：Returns a value in seconds of the time elapsed from some point，返回的是一个观察点的时间值，
-             * 这个时间将一直在程序运行时持续，也就是说，在程序运行前使用和程序运行结束使用，这个时间差是整个程序运行的时间，
-             * 而不是clock得到的cpu运行的时间
-             */
-
-            /******* Publish points *******/
-            if (path_en)
-                publish_path(pubPath_);
-            if (scan_pub_en)
-                publish_frame_world(pubLaserCloudFull_);// cloud_registered
-            if (scan_pub_en && scan_body_pub_en)
-                publish_frame_body(pubLaserCloudFull_body_);//cloud_registered_body
-            if (effect_pub_en)
-                publish_effect_world(pubLaserCloudEffect_);
-            // if (map_pub_en) publish_map(pubLaserCloudMap_);
-
-            /*** Debug variables ***/
-            if (runtime_pos_log)
-            {
-                frame_num++;
-                kdtree_size_end = ikdtree.size();
-                aver_time_consu = aver_time_consu * (frame_num - 1) / frame_num + (t5 - t0) / frame_num;
-                aver_time_icp = aver_time_icp * (frame_num - 1) / frame_num + (t_update_end - t_update_start) / frame_num;
-                aver_time_match = aver_time_match * (frame_num - 1) / frame_num + (match_time) / frame_num;
-                aver_time_incre = aver_time_incre * (frame_num - 1) / frame_num + (kdtree_incremental_time) / frame_num;
-                aver_time_solve = aver_time_solve * (frame_num - 1) / frame_num + (solve_time + solve_H_time) / frame_num;
-                aver_time_const_H_time = aver_time_const_H_time * (frame_num - 1) / frame_num + solve_time / frame_num;
-                T1[time_log_counter] = Measures.lidar_beg_time;
-                s_plot[time_log_counter] = t5 - t0;
-                s_plot2[time_log_counter] = feats_undistort->points.size();
-                s_plot3[time_log_counter] = kdtree_incremental_time;
-                s_plot4[time_log_counter] = kdtree_search_time;
-                s_plot5[time_log_counter] = kdtree_delete_counter;
-                s_plot6[time_log_counter] = kdtree_delete_time;
-                s_plot7[time_log_counter] = kdtree_size_st;
-                s_plot8[time_log_counter] = kdtree_size_end;
-                s_plot9[time_log_counter] = aver_time_consu;
-                s_plot10[time_log_counter] = add_point_size;
-                time_log_counter++;
-                printf("[ mapping ]: time: IMU + Map + Input Downsample: %0.6f ave match: %0.6f ave solve: %0.6f  ave ICP: %0.6f  map incre: %0.6f ave total: %0.6f icp: %0.6f construct H: %0.6f \n", t1 - t0, aver_time_match, aver_time_solve, t3 - t1, t5 - t3, aver_time_consu, aver_time_icp, aver_time_const_H_time);
-                ext_euler = SO3ToEuler(state_point.offset_R_L_I);
-                fout_out << setw(20) << Measures.lidar_beg_time - first_lidar_time << " " << euler_cur.transpose() << " " << state_point.pos.transpose() << " " << ext_euler.transpose() << " " << state_point.offset_T_L_I.transpose() << " " << state_point.vel.transpose()
-                         << " " << state_point.bg.transpose() << " " << state_point.ba.transpose() << " " << state_point.grav << " " << feats_undistort->points.size() << endl;
-                dump_lio_state_to_log(fp);
-            }
+        /*** Debug variables ***/
+        if (runtime_pos_log)
+        {
+            frame_num++;
+            kdtree_size_end = ikdtree.size();
+            aver_time_consu = aver_time_consu * (frame_num - 1) / frame_num + (t5 - t0) / frame_num;
+            aver_time_icp = aver_time_icp * (frame_num - 1) / frame_num + (t_update_end - t_update_start) / frame_num;
+            aver_time_match = aver_time_match * (frame_num - 1) / frame_num + (match_time) / frame_num;
+            aver_time_incre = aver_time_incre * (frame_num - 1) / frame_num + (kdtree_incremental_time) / frame_num;
+            aver_time_solve = aver_time_solve * (frame_num - 1) / frame_num + (solve_time + solve_H_time) / frame_num;
+            aver_time_const_H_time = aver_time_const_H_time * (frame_num - 1) / frame_num + solve_time / frame_num;
+            T1[time_log_counter] = Measures.lidar_beg_time;
+            s_plot[time_log_counter] = t5 - t0;
+            s_plot2[time_log_counter] = feats_undistort->points.size();
+            s_plot3[time_log_counter] = kdtree_incremental_time;
+            s_plot4[time_log_counter] = kdtree_search_time;
+            s_plot5[time_log_counter] = kdtree_delete_counter;
+            s_plot6[time_log_counter] = kdtree_delete_time;
+            s_plot7[time_log_counter] = kdtree_size_st;
+            s_plot8[time_log_counter] = kdtree_size_end;
+            s_plot9[time_log_counter] = aver_time_consu;
+            s_plot10[time_log_counter] = add_point_size;
+            time_log_counter++;
+            printf("[ mapping ]: time: IMU + Map + Input Downsample: %0.6f ave match: %0.6f ave solve: %0.6f  ave ICP: %0.6f  map incre: %0.6f ave total: %0.6f icp: %0.6f construct H: %0.6f \n", t1 - t0, aver_time_match, aver_time_solve, t3 - t1, t5 - t3, aver_time_consu, aver_time_icp, aver_time_const_H_time);
+            ext_euler = SO3ToEuler(state_point.offset_R_L_I);
+            fout_out << setw(20) << Measures.lidar_beg_time - first_lidar_time << " " << euler_cur.transpose() << " " << state_point.pos.transpose() << " " << ext_euler.transpose() << " " << state_point.offset_T_L_I.transpose() << " " << state_point.vel.transpose()
+                        << " " << state_point.bg.transpose() << " " << state_point.ba.transpose() << " " << state_point.grav << " " << feats_undistort->points.size() << endl;
+            dump_lio_state_to_log(fp);
         }
     }
 

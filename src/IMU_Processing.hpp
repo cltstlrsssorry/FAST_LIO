@@ -87,8 +87,7 @@ private:
   bool imu_need_init_ = true;
 };
 
-ImuProcess::ImuProcess()
-    : b_first_frame_(true), imu_need_init_(true), start_timestamp_(-1)
+ImuProcess::ImuProcess(): b_first_frame_(true), imu_need_init_(true), start_timestamp_(-1)
 {
   init_iter_num = 1;
   Q = process_noise_cov();
@@ -243,15 +242,18 @@ void ImuProcess::IMU_init(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 
 */
 void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikfom, 12, input_ikfom> &kf_state, PointCloudXYZI &pcl_out)
 {
+
   /*** add the imu of the last frame-tail to the of current frame-head ***/
   // 拿到当前的imu数据
   auto v_imu = meas.imu;
   // 将上一帧最后尾部的imu添加到当前帧头部的imu
   v_imu.push_front(last_imu_);
+
   // 拿到当前帧头部的imu的时间（也就是上一帧尾部的imu时间戳）
   const double &imu_beg_time = rclcpp::Time(v_imu.front()->header.stamp).seconds();
   // 拿到当前帧尾部的imu的时间
   const double &imu_end_time = rclcpp::Time(v_imu.back()->header.stamp).seconds();
+  
   // pcl开始的时间戳
   const double &pcl_beg_time = meas.lidar_beg_time;
   // pcl结束的时间戳

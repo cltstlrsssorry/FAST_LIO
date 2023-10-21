@@ -1,6 +1,7 @@
 #include "preprocess.h"
 
 #include <pcl/common/common.h>
+#include <sgement/>
 
 #define RETURN0 0x00
 #define RETURN0AND1 0x10
@@ -93,6 +94,8 @@ void Preprocess::process(const sensor_msgs::msg::PointCloud2::UniquePtr &msg, Po
     break;
   }
   *pcl_out = pl_surf;
+
+  pcl::RadiusOutlierRemoval<>
 }
 
 void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr &msg)
@@ -182,6 +185,9 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
   }
   else // 不进行点云特征提取
   {
+    int *idtrans = (int *)calloc(plsize, sizeof(int));
+    float *data=(float*)calloc(plsize*4,sizeof(float));
+    int point_num = 0;
 
     for (uint i = 1; i < plsize; i++)
     {
@@ -195,9 +201,17 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
           pl_full[i].y = msg->points[i].y;
           pl_full[i].z = msg->points[i].z;
           pl_full[i].intensity = msg->points[i].reflectivity;
-          pl_full[i].curvature = msg->points[i].offset_time /
-                                 float(1000000); // use curvature as time of each laser points, curvature unit: ms
+          pl_full[i].curvature = msg->points[i].offset_time /float(1000000); // use curvature as time of each laser points, curvature unit: ms
+        }
+      }
+    }
 
+    //
+    
+
+    
+    for(uint i=1; i<plsize; i++)
+    {
           // 计算当前点pl_full[i]和上一点pl_full[i-1]在x、y、z轴上的坐标差值
           // 判断坐标差的绝对值是否都大于1e-7(0.0000001),这个值是距离变化的阈值
           // 再判断当前点到原点的距离是否大于blind的平方(blind应该是设置的距离阈值)
@@ -211,8 +225,6 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
           {
             pl_surf.push_back(pl_full[i]);
           }
-        }
-      }
     }
     
   }
@@ -525,7 +537,6 @@ void Preprocess::mid360_handler(const sensor_msgs::msg::PointCloud2::UniquePtr &
   double yaw_first = atan2(pl_orig.points[0].y, pl_orig.points[0].x) * 57.29578; // atan2 返回值的单位为弧度    1弧度= 180°/π= 57.295779513°    度=弧度×180°/π
   double yaw_end = yaw_first;                                                    // 声明变量赋值，后续修改
   int layer_first = pl_orig.points[0].line;                                      // 第一个点的层号
-  cout << "layer_first" << layer_first << endl;
 
   for (uint i = plsize - 1; i > 0; i--)
   {
@@ -555,7 +566,7 @@ void Preprocess::mid360_handler(const sensor_msgs::msg::PointCloud2::UniquePtr &
 
     int layer = pl_orig.points[i].line;                         // 线数
 
-    double yaw_angle = atan2(added_pt.y, added_pt.x) * 57.2957; // 计算一个二维点相对于x轴的角度弧度值,并将其转换为度制的航向角。
+    double yaw_angle = atan2(added_pt.y, added_pt.x) * 57.29578; // 计算一个二维点相对于x轴的角度弧度值,并将其转换为度制的航向角。
 
     if (is_first[layer])
     {

@@ -158,6 +158,10 @@ class Preprocess
   PointCloudXYZI pl_full, pl_corn, pl_surf;// 全部点、边缘点、平面点
   PointCloudXYZI pl_buff[128]; //maximum 128 line lidar
   vector<orgtype> typess[128]; //maximum 128 line lidar
+
+  pcl::RadiusOutlierRemoval<PointType> outrem;// 点云滤波器
+  PointCloudXYZI::Ptr pcl_ptr;// 指向点云的指针
+
   float time_unit_scale;
   int lidar_type, point_filter_num, N_SCANS, SCAN_RATE, time_unit;// 雷达类型、采样间隔、扫描线数、扫描频率
   double blind;// 最小距离阈值(盲区)

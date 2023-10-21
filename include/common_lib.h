@@ -57,10 +57,11 @@ struct MeasureGroup     // Lidar data and imu dates for the curent process
         lidar_beg_time = 0.0;
         this->lidar.reset(new PointCloudXYZI());
     };
-    double lidar_beg_time;
-    double lidar_end_time;
-    PointCloudXYZI::Ptr lidar;
-    deque<sensor_msgs::msg::Imu::ConstSharedPtr> imu;
+    double lidar_beg_time;//开始时间
+    double lidar_end_time;//结束时间
+    PointCloudXYZI::Ptr lidar;//雷达点云
+    deque<sensor_msgs::msg::Imu::ConstSharedPtr> imu;//imu数据
+    //ConstSharedPtr是C++中的智能指针类型，它是std::shared_ptr的一个别名而已。与shared_ptr相比，ConstSharedPtr允许多个只读指针共享一个对象，且这些指针都不能修改对象的值。
 };
 
 struct StatesGroup
