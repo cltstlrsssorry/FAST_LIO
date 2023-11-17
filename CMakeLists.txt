@@ -1,53 +1,53 @@
-cmake_minimum_required(VERSION 3.8)
-project(fast_lio)
+cmake_minimum_required(VERSION 3.8) # 设置CMake的最低版本要求
+project(fast_lio) # 为项目设置名称
 
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE Release)
+
+if(NOT CMAKE_BUILD_TYPE) # 如果编译类型未设置
+  set(CMAKE_BUILD_TYPE Release) # 则设置为Release类型
 endif()
 
-ADD_COMPILE_OPTIONS(-std=c++14)
-ADD_COMPILE_OPTIONS(-std=c++14)
-set(CMAKE_CXX_FLAGS "-std=c++14 -O3")
+ADD_COMPILE_OPTIONS(-std=c++14) # 为编译添加C++14标准选项
+set(CMAKE_CXX_FLAGS "-std=c++14 -O3") # 设置C++编译flags
 
-add_definitions(-DROOT_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/\")
+add_definitions(-DROOT_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/\") # 为项目添加宏定义
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexceptions")
-set(CMAKE_CXX_STANDARD 14)
-set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_EXTENSIONS OFF)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -std=c++0x -std=c++14 -fexceptions")
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexceptions") # 为C编译添加异常处理选项
+set(CMAKE_CXX_STANDARD 14) # 设置C++标准为14
+set(CMAKE_CXX_STANDARD_REQUIRED ON) # 设置C++标准为必需
+set(CMAKE_CXX_EXTENSIONS OFF) # 关闭C++扩展
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -std=c++0x -std=c++14 -fexceptions") # 为C++编译添加更多选项
+set(CMAKE_POSITION_INDEPENDENT_CODE ON) # 使代码独立于位置
 
-message("Current CPU archtecture: ${CMAKE_SYSTEM_PROCESSOR}")
+message("Current CPU archtecture: ${CMAKE_SYSTEM_PROCESSOR}") # 输出当前CPU架构
 
-if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)")
-  include(ProcessorCount)
-  ProcessorCount(N)
-  message("Processer number:  ${N}")
+if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)") # 如果CPU架构匹配特定条件
+  include(ProcessorCount) # 包含用于获取CPU核心数量的宏
+  ProcessorCount(N) # 定义一个名为N的变量，用于存储CPU核心数量
+  message("Processer number:  ${N}") # 输出CPU核心数量
 
-  if(N GREATER 4)
-    add_definitions(-DMP_EN)
-    add_definitions(-DMP_PROC_NUM=3)
-    message("core for MP: 3")
-  elseif(N GREATER 3)
+  if(N GREATER 4) # 如果核心数量大于4
+    add_definitions(-DMP_EN) # 添加一个名为MP_EN的宏定义
+    add_definitions(-DMP_PROC_NUM=3) # 添加一个名为MP_PROC_NUM的宏定义，值为3
+    message("core for MP: 3") # 输出用于多进程的CPU核心数量
+  elseif(N GREATER 3) # 如果核心数量大于3
     add_definitions(-DMP_EN)
     add_definitions(-DMP_PROC_NUM=2)
     message("core for MP: 2")
-  else()
+  else() # 如果核心数量小于等于3
     add_definitions(-DMP_PROC_NUM=1)
   endif()
-else()
+else() # 如果CPU架构不匹配特定条件
   add_definitions(-DMP_PROC_NUM=1)
 endif()
 
-find_package(OpenMP QUIET)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}   ${OpenMP_C_FLAGS}")
+find_package(OpenMP QUIET) # 查找OpenMP库
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}") # 为C++编译添加OpenMP选项
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}   ${OpenMP_C_FLAGS}") # 为C编译添加OpenMP选项
 
-find_package(PythonLibs REQUIRED)
-find_path(MATPLOTLIB_CPP_INCLUDE_DIRS "matplotlibcpp.h")
+find_package(PythonLibs REQUIRED) # 查找Python库
+find_path(MATPLOTLIB_CPP_INCLUDE_DIRS "matplotlibcpp.h") # 查找matplotlibcpp.h文件
 
-# ROS dependencies
+# ROS dependencies  查找ROS依赖
 find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_components REQUIRED)
@@ -62,6 +62,7 @@ find_package(pcl_conversions REQUIRED)
 find_package(livox_ros_driver2 REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
+# 设置依赖项
 set(dependencies
   rclcpp
   rclcpp_components
@@ -77,31 +78,38 @@ set(dependencies
 )
 
 # Thirdparty libraries
-find_package(Eigen3 REQUIRED)
-find_package(PCL REQUIRED COMPONENTS common io)
+find_package(Eigen3 REQUIRED) # 查找Eigen库
+find_package(PCL REQUIRED COMPONENTS common io) # 查找PCL库
 
-message(Eigen: ${EIGEN3_INCLUDE_DIR})
-message(STATUS "PCL: ${PCL_INCLUDE_DIRS}")
+message(Eigen: ${EIGEN3_INCLUDE_DIR}) # 输出Eigen包含路径
+message(STATUS "PCL: ${PCL_INCLUDE_DIRS}") # 输出PCL包含路径
 
+# 设置消息文件
 set(msg_files
   "msg/Pose6D.msg"
 )
 
-rosidl_generate_interfaces(${PROJECT_NAME}
-  ${msg_files}
-)
+# 为项目生成ROS消息接口
+rosidl_generate_interfaces(${PROJECT_NAME} ${msg_files})
+# 导出依赖项
 ament_export_dependencies(rosidl_default_runtime)
 
-add_executable(fastlio_mapping src/laserMapping.cpp include/ikd-Tree/ikd_Tree.cpp src/preprocess.cpp src/segment.cpp src/pointsCorrect.cpp)
+# 添加可执行文件fastlio_mapping
+add_executable(fastlio_mapping include/ikd-Tree/ikd_Tree.cpp src/fastlio.cpp src/NodeCloudProcess.cpp src/preprocess.cpp src/NodeCloudSegment.cpp   src/Run.cpp)
+
+# 设置fastlio_mapping的公共头文件目录
 target_include_directories(fastlio_mapping PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>
   ${PCL_INCLUDE_DIRS}
 )
+
+# 设置PCL链接库
 target_link_libraries(fastlio_mapping ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} Eigen3::Eigen)
+# 设置fastlio_mapping的私有头文件目录
 target_include_directories(fastlio_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})
 
-list(APPEND EOL_LIST "foxy" "galactic" "eloquent" "dashing" "crystal")
+list(APPEND EOL_LIST "foxy" "galactic" "eloquent" "dashing" "crystal") # 添加一个名为EOL_LIST的列表，用于支持多个ROS发行版
 
 if($ENV{ROS_DISTRO} IN_LIST EOL_LIST)
   # Custommsg to support foxy & galactic
