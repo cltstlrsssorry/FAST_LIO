@@ -17,6 +17,11 @@
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/radius_outlier_removal.h>
 
+#include <omp.h>
+
+#include"segment/segment.h"
+//#include <fastlio.h>
+
 using namespace std;
 
 #define IS_VALID(a) ((abs(a) > 1e8) ? true : false)
@@ -190,4 +195,5 @@ private:
   double edgea, edgeb;
   double smallp_intersect, smallp_ratio;
   double vx, vy, vz;
+
 };

@@ -40,7 +40,7 @@ else() # 如果CPU架构不匹配特定条件
   add_definitions(-DMP_PROC_NUM=1)
 endif()
 
-find_package(OpenMP QUIET) # 查找OpenMP库
+find_package(OpenMP REQUIRED) # 查找OpenMP库
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}") # 为C++编译添加OpenMP选项
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}   ${OpenMP_C_FLAGS}") # 为C编译添加OpenMP选项
 
@@ -95,7 +95,28 @@ rosidl_generate_interfaces(${PROJECT_NAME} ${msg_files})
 ament_export_dependencies(rosidl_default_runtime)
 
 # 添加可执行文件fastlio_mapping
-add_executable(fastlio_mapping include/ikd-Tree/ikd_Tree.cpp src/fastlio.cpp src/NodeCloudProcess.cpp src/preprocess.cpp src/NodeCloudSegment.cpp   src/Run.cpp)
+add_executable(fastlio_mapping
+
+  include/common_lib.cpp
+  include/ikd-Tree/ikd_Tree.cpp
+  include/fastlio.cpp 
+  include/use-ikfom.cpp
+
+  src/IMU_Processing.cpp
+  src/preprocess.cpp
+
+  src/ERASOR/ERASOR.cpp
+  src/segment/pointsCorrect.cpp 
+  src/segment/segment.cpp
+
+  src/NodePreProcess.cpp 
+  src/NodeCloudSegment.cpp
+  src/NodeCloudDynamicFilter.cpp
+
+  src/Run.cpp
+  
+  
+  )
 
 # 设置fastlio_mapping的公共头文件目录
 target_include_directories(fastlio_mapping PUBLIC

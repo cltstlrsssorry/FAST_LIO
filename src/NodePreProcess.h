@@ -29,6 +29,7 @@ public:
     ~NodeCloudProcess();
 
 private:
+    void declare_and_get_parameter();
 
     void standard_pcl_cbk(const sensor_msgs::msg::PointCloud2::UniquePtr msg);
 
@@ -54,4 +55,5 @@ private:
     int publish_count=0, scan_count=0;
 
     shared_ptr<Preprocess> preprocess=std::make_shared<Preprocess>();
+    
 };

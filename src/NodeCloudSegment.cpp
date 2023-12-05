@@ -2,8 +2,7 @@
 
 NodeCloudSegment::NodeCloudSegment(const std::string & name,PointCloudXYZI::Ptr InputPoints):Node(name, rclcpp::NodeOptions().use_intra_process_comms(true))
 {
-    
-    std::cout<<"cloud segment"<<std::endl;
+    RCLCPP_INFO(this->get_logger(), "----NodeCloudSegment----"); // 输出信息，初始化结束
 
     this->InputPoints=InputPoints;
     this->declare_parameter<bool>("publish.map_en", false);
@@ -13,6 +12,8 @@ NodeCloudSegment::NodeCloudSegment(const std::string & name,PointCloudXYZI::Ptr 
 
     auto reg_map_period_ms = std::chrono::milliseconds(static_cast<int64_t>(5000.0));
     reg_map_pub_timer_ = rclcpp::create_timer(this, this->get_clock(), reg_map_period_ms, std::bind(&NodeCloudSegment::reg_map_publish_callback, this));
+
+    RCLCPP_INFO(this->get_logger(), "----NodeCloudSegment init finished.----"); // 输出信息，初始化结束
 
 }
 
@@ -79,7 +80,7 @@ void NodeCloudSegment::publish_segment_map(rclcpp::Publisher<sensor_msgs::msg::P
     sensor_msgs::msg::PointCloud2 laserCloudmsg;
     pcl::toROSMsg(*points, laserCloudmsg);
 
-    laserCloudmsg.header.stamp = fastlio::get_ros_time(lidar_end_time);
+    laserCloudmsg.header.stamp = get_ros_time(lidar_end_time);
     laserCloudmsg.header.frame_id = "camera_init";
     publish_cloud->publish(laserCloudmsg);
 }

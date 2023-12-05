@@ -20,11 +20,14 @@ using namespace std;
 
 class NodeCloudSegment : public rclcpp::Node
 {
-    public:
+    
+public:
     NodeCloudSegment(const std::string & name,PointCloudXYZI::Ptr InputPoints);
+
     ~NodeCloudSegment();
 
 private:
+
     void reg_map_publish_callback();
     //Laser_map
     void publish_segment_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publish_cloud);
@@ -38,4 +41,5 @@ private:
 
     bool map_pub_en = false;
     double lidar_end_time;
+    
 };

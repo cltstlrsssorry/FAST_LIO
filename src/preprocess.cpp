@@ -3,6 +3,7 @@
 #define RETURN0 0x00
 #define RETURN0AND1 0x10
 
+
 Preprocess::Preprocess() : feature_enabled(0), lidar_type(AVIA), blind(0.01), point_filter_num(1)
 {
   inf_bound = 10;
@@ -28,11 +29,14 @@ Preprocess::Preprocess() : feature_enabled(0), lidar_type(AVIA), blind(0.01), po
   jump_down_limit = cos(jump_down_limit / 180 * M_PI);
   cos160 = cos(cos160 / 180 * M_PI);
   smallp_intersect = cos(smallp_intersect / 180 * M_PI);
+
 }
+
 
 Preprocess::~Preprocess()
 {
 }
+
 
 void Preprocess::set(bool feat_en, int lid_type, double bld, int pfilt_num)
 {
@@ -42,12 +46,14 @@ void Preprocess::set(bool feat_en, int lid_type, double bld, int pfilt_num)
   point_filter_num = pfilt_num;
 }
 
+
 void Preprocess::process(const livox_ros_driver2::msg::CustomMsg::UniquePtr &msg, PointCloudXYZI::Ptr &pcl_out)
 {
   avia_handler(msg);
 
   *pcl_out = pl_surf;
 }
+
 
 void Preprocess::process(const sensor_msgs::msg::PointCloud2::UniquePtr &msg, PointCloudXYZI::Ptr &pcl_out)
 {
@@ -91,6 +97,7 @@ void Preprocess::process(const sensor_msgs::msg::PointCloud2::UniquePtr &msg, Po
   *pcl_out = pl_surf;
 }
 
+
 void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr &msg)
 {
   pl_surf.clear();
@@ -104,15 +111,15 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
   pl_surf.reserve(plsize);
   pl_full.resize(plsize);
 
-  int *idtrans = (int *)calloc(plsize, sizeof(int));
-  float *data = (float *)calloc(plsize * 4, sizeof(float));
-  int point_num = 0;
+  //int *idtrans = (int *)calloc(plsize, sizeof(int));
+  //float *data = (float *)calloc(plsize * 4, sizeof(float));
 
   for (int i = 0; i < N_SCANS; i++)
   {
     pl_buff[i].clear();
     pl_buff[i].reserve(plsize);
   }
+
   uint valid_num = 0;
 
   if (feature_enabled)
@@ -128,20 +135,15 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
         pl_full[i].curvature = msg->points[i].offset_time / float(1000000); // use curvature as time of each laser points
 
         bool is_new = false;
-        data[i * 4 + 0] = msg->points[i].x;
-        data[i * 4 + 1] = msg->points[i].y;
-        data[i * 4 + 2] = msg->points[i].z;
-        data[i * 4 + 3] = msg->points[i].reflectivity;
-        point_num++;
 
-        if (idtrans[i] < 9)
+        valid_num++;
+
+        if ((abs(pl_full[i].x - pl_full[i - 1].x) > 1e-7) || (abs(pl_full[i].y - pl_full[i - 1].y) > 1e-7) ||
+            (abs(pl_full[i].z - pl_full[i - 1].z) > 1e-7))
         {
-          if ((abs(pl_full[i].x - pl_full[i - 1].x) > 1e-7) || (abs(pl_full[i].y - pl_full[i - 1].y) > 1e-7) ||
-              (abs(pl_full[i].z - pl_full[i - 1].z) > 1e-7))
-          {
-            pl_buff[msg->points[i].line].push_back(pl_full[i]);
-          }
+          pl_buff[msg->points[i].line].push_back(pl_full[i]);
         }
+
       }
     }
 
@@ -181,27 +183,47 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
     {
       if ((msg->points[i].line < N_SCANS) && ((msg->points[i].tag & 0x30) == 0x10 || (msg->points[i].tag & 0x30) == 0x00))
       {
-        valid_num++;
-
         if (valid_num % point_filter_num == 0)
         {
+          valid_num++;
+
           pl_full[i].x = msg->points[i].x;
           pl_full[i].y = msg->points[i].y;
           pl_full[i].z = msg->points[i].z;
           pl_full[i].intensity = msg->points[i].reflectivity;
           pl_full[i].curvature = msg->points[i].offset_time / float(1000000); // use curvature as time of each laser points, curvature unit: ms
+          
+          //data[i * 4 + 0] = pl_full[i].x;
+          //data[i * 4 + 1] = pl_full[i].y;
+          //data[i * 4 + 2] = pl_full[i].z;
+          //data[i * 4 + 3] = pl_full[i].intensity;
 
-          if ((abs(pl_full[i].x - pl_full[i - 1].x) > 1e-7) || (abs(pl_full[i].y - pl_full[i - 1].y) > 1e-7) ||
-              (abs(pl_full[i].z - pl_full[i - 1].z) > 1e-7) &&
-                  (pl_full[i].x * pl_full[i].x + pl_full[i].y * pl_full[i].y + pl_full[i].z * pl_full[i].z > (blind * blind)))
+          if ((msg->points[i].line < N_SCANS) && ((msg->points[i].tag & 0x30) == 0x10 || (msg->points[i].tag & 0x30) == 0x00))
           {
-            pl_surf.push_back(pl_full[i]);
+            if ((abs(pl_full[i].x - pl_full[i - 1].x) > 1e-7) || (abs(pl_full[i].y - pl_full[i - 1].y) > 1e-7) ||
+                (abs(pl_full[i].z - pl_full[i - 1].z) > 1e-7) &&
+                    (pl_full[i].x * pl_full[i].x + pl_full[i].y * pl_full[i].y + pl_full[i].z * pl_full[i].z > (blind * blind)))
+            {
+              pl_surf.push_back(pl_full[i]);
+            }
           }
+
         }
       }
     }
+
+    /**
+    if (valid_num > 5)
+    {
+      PCSeg pcseg;
+      pcseg.DoSeg(idtrans, data, valid_num);
+    }
+    */
+  
+
   }
 }
+
 
 void Preprocess::oust64_handler(const sensor_msgs::msg::PointCloud2::UniquePtr &msg)
 {
@@ -302,6 +324,7 @@ void Preprocess::oust64_handler(const sensor_msgs::msg::PointCloud2::UniquePtr &
   // pub_func(pl_surf, pub_full, msg->header.stamp);
   // pub_func(pl_surf, pub_corn, msg->header.stamp);
 }
+
 
 void Preprocess::velodyne_handler(const sensor_msgs::msg::PointCloud2::UniquePtr &msg)
 {
@@ -483,6 +506,7 @@ void Preprocess::velodyne_handler(const sensor_msgs::msg::PointCloud2::UniquePtr
   }
 }
 
+
 void Preprocess::mid360_handler(const sensor_msgs::msg::PointCloud2::UniquePtr &msg)
 {
   pl_surf.clear();
@@ -566,6 +590,7 @@ void Preprocess::mid360_handler(const sensor_msgs::msg::PointCloud2::UniquePtr &
   }
 }
 
+
 void Preprocess::default_handler(const sensor_msgs::msg::PointCloud2::UniquePtr &msg)
 {
   pl_surf.clear();
@@ -597,6 +622,7 @@ void Preprocess::default_handler(const sensor_msgs::msg::PointCloud2::UniquePtr 
     }
   }
 }
+
 
 void Preprocess::give_feature(pcl::PointCloud<PointType> &pl, vector<orgtype> &types)
 {
@@ -914,6 +940,7 @@ void Preprocess::give_feature(pcl::PointCloud<PointType> &pl, vector<orgtype> &t
   }
 }
 
+
 void Preprocess::pub_func(PointCloudXYZI &pl, const rclcpp::Time &ct)
 {
   pl.height = 1;
@@ -923,6 +950,7 @@ void Preprocess::pub_func(PointCloudXYZI &pl, const rclcpp::Time &ct)
   output.header.frame_id = "livox";
   output.header.stamp = ct;
 }
+
 
 int Preprocess::plane_judge(const PointCloudXYZI &pl, vector<orgtype> &types, uint i_cur, uint &i_nex,
                             Eigen::Vector3d &curr_direct)
@@ -1039,6 +1067,7 @@ int Preprocess::plane_judge(const PointCloudXYZI &pl, vector<orgtype> &types, ui
   curr_direct.normalize();
   return 1;
 }
+
 
 bool Preprocess::edge_jump_judge(const PointCloudXYZI &pl, vector<orgtype> &types, uint i, Surround nor_dir)
 {

@@ -1,4 +1,4 @@
-# include "NodeCloudProcess.h"
+# include "NodePreProcess.h"
 
 // 定义全局变量
 std::deque<double> time_buffer;
@@ -9,8 +9,43 @@ double last_timestamp_lidar = 0, last_timestamp_imu = -1.0;
 
 NodeCloudProcess::NodeCloudProcess(const std::string & name) : Node(name, rclcpp::NodeOptions().use_intra_process_comms(true))
 {
+    RCLCPP_INFO(this->get_logger(), "----NodeCloudProcess----");
 
-    cout << "----NodeCloudProcess----" << endl;
+    declare_and_get_parameter();
+
+    // 其中FOV_DEG是激光雷达的全视场角度,HALF_FOV_COS是角度的一半对应的余弦值。这些值会在后续滤波或特征提取时用到,因此在初始化时先进行计算。而路径消息path的头信息是发布里程计结果时需要的总体上,这段代码主要是进行了一些初始化操作,计算参数并打印,为算法运行做准备。
+    RCLCPP_INFO(this->get_logger(), "p_pre->lidar_type %d", preprocess->lidar_type); // 打印当前的激光雷达类型p_pre->lidar_type
+
+    // 创建订阅器
+    /*** ROS subscribe initialization ***/
+    if (preprocess->lidar_type == AVIA)
+    {
+        sub_pcl_livox_ = this->create_subscription<livox_ros_driver2::msg::CustomMsg>(lid_topic, 20, std::bind(&NodeCloudProcess::livox_pcl_cbk, this,std::placeholders::_1));
+        // 数字 20 表示消息队列的最大长度，即最多可以缓存多少条消息。
+    }
+    else
+    {
+        sub_pcl_pc_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(lid_topic, 20, std::bind(&NodeCloudProcess::standard_pcl_cbk, this,std::placeholders::_1));
+    }
+
+    /**
+     * 在 C++ 中，可以使用 create_subscription 方法来创建订阅器。
+     * 例如，下面的代码创建了一个名为 subscription 的订阅器，它将订阅名为 imu_topic 的主题，消息类型为 sensor_msgs::msg::Imu，队列大小为 10，回调函数为 imu_cbk
+     * */
+    sub_imu_ = this->create_subscription<sensor_msgs::msg::Imu>(imu_topic, 10, std::bind(&NodeCloudProcess::imu_cbk, this,std::placeholders::_1)); // 10 表示消息队列的最大长度，即最多可以缓存多少条消息。
+
+    RCLCPP_INFO(this->get_logger(), "----NodeCloudProcess init finished.----");
+
+}
+
+NodeCloudProcess::~NodeCloudProcess()
+{
+
+}
+
+
+void NodeCloudProcess::declare_and_get_parameter()
+{
     // 声明和初始化一个参数
     this->declare_parameter<string>("common.lid_topic", "/livox/lidar");
     this->declare_parameter<string>("common.imu_topic", "/livox/imu");
@@ -38,41 +73,14 @@ NodeCloudProcess::NodeCloudProcess(const std::string & name) : Node(name, rclcpp
     this->get_parameter_or<int>("preprocess.scan_line", preprocess->N_SCANS, 16);
     this->get_parameter_or<int>("preprocess.timestamp_unit", preprocess->time_unit, US);
     this->get_parameter_or<int>("preprocess.scan_rate", preprocess->SCAN_RATE, 10);
-
-    // 其中FOV_DEG是激光雷达的全视场角度,HALF_FOV_COS是角度的一半对应的余弦值。这些值会在后续滤波或特征提取时用到,因此在初始化时先进行计算。而路径消息path的头信息是发布里程计结果时需要的总体上,这段代码主要是进行了一些初始化操作,计算参数并打印,为算法运行做准备。
-    RCLCPP_INFO(this->get_logger(), "p_pre->lidar_type %d", preprocess->lidar_type); // 打印当前的激光雷达类型p_pre->lidar_type
-
-    // 创建订阅器
-    /*** ROS subscribe initialization ***/
-    if (preprocess->lidar_type == AVIA)
-    {
-        sub_pcl_livox_ = this->create_subscription<livox_ros_driver2::msg::CustomMsg>(lid_topic, 20, std::bind(&NodeCloudProcess::livox_pcl_cbk, this,std::placeholders::_1));
-        // 数字 20 表示消息队列的最大长度，即最多可以缓存多少条消息。
-    }
-    else
-    {
-        sub_pcl_pc_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(lid_topic, 20, std::bind(&NodeCloudProcess::standard_pcl_cbk, this,std::placeholders::_1));
-    }
-
-    /**
-     * 在 C++ 中，可以使用 create_subscription 方法来创建订阅器。
-     * 例如，下面的代码创建了一个名为 subscription 的订阅器，它将订阅名为 imu_topic 的主题，消息类型为 sensor_msgs::msg::Imu，队列大小为 10，回调函数为 imu_cbk
-     * */
-    sub_imu_ = this->create_subscription<sensor_msgs::msg::Imu>(imu_topic, 10, std::bind(&NodeCloudProcess::imu_cbk, this,std::placeholders::_1)); // 10 表示消息队列的最大长度，即最多可以缓存多少条消息。
-
-    RCLCPP_INFO(this->get_logger(), "NodeCloudProcess init finished."); // 输出信息，初始化结束
 }
 
-NodeCloudProcess::~NodeCloudProcess()
-{
-
-}
 
 void NodeCloudProcess::standard_pcl_cbk(const sensor_msgs::msg::PointCloud2::UniquePtr msg) 
 {
     mtx_buffer.lock();
     scan_count ++;
-    double cur_time = fastlio::get_time_sec(msg->header.stamp);
+    double cur_time = get_time_sec(msg->header.stamp);
     double preprocess_start_time = omp_get_wtime();
     if (!is_first_lidar && cur_time < last_timestamp_lidar)
     {
@@ -92,13 +100,13 @@ void NodeCloudProcess::standard_pcl_cbk(const sensor_msgs::msg::PointCloud2::Uni
     last_timestamp_lidar = cur_time;
     mtx_buffer.unlock();
     sig_buffer.notify_all();
-}
+} 
 
 
 void NodeCloudProcess::livox_pcl_cbk(const livox_ros_driver2::msg::CustomMsg::UniquePtr msg)
 {
     mtx_buffer.lock();
-    double cur_time = fastlio::get_time_sec(msg->header.stamp);
+    double cur_time = get_time_sec(msg->header.stamp);
     double preprocess_start_time = omp_get_wtime();
     scan_count++;
     if (!is_first_lidar && cur_time < last_timestamp_lidar)
@@ -139,14 +147,14 @@ void NodeCloudProcess::imu_cbk(const sensor_msgs::msg::Imu::UniquePtr msg_in)
     // cout<<"IMU got at: "<<msg_in->header.stamp.toSec()<<endl;
     sensor_msgs::msg::Imu::SharedPtr msg(new sensor_msgs::msg::Imu(*msg_in));
 
-    msg->header.stamp = fastlio::get_ros_time(fastlio::get_time_sec(msg_in->header.stamp) - time_diff_lidar_to_imu);
+    msg->header.stamp = get_ros_time(get_time_sec(msg_in->header.stamp) - time_diff_lidar_to_imu);
 
     if (abs(timediff_lidar_wrt_imu) > 0.1 && time_sync_en)
     {
-        msg->header.stamp =rclcpp::Time(timediff_lidar_wrt_imu + fastlio::get_time_sec(msg_in->header.stamp));
+        msg->header.stamp =rclcpp::Time(timediff_lidar_wrt_imu + get_time_sec(msg_in->header.stamp));
     }
 
-    double timestamp = fastlio::get_time_sec(msg->header.stamp);
+    double timestamp = get_time_sec(msg->header.stamp);
 
     mtx_buffer.lock();
 

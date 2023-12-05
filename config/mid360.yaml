@@ -2,8 +2,8 @@
     ros__parameters:
         map_file_path: "./test.pcd"
         feature_extract_enable: false
-        filter_size_map: 0.05
-        filter_size_surf: 0.05
+        filter_size_map: 0.02
+        filter_size_surf: 0.02
         filter_radius_filter_map: 0.15
         radius_filter_map: 0.1
         
@@ -18,7 +18,7 @@
         preprocess:
             lidar_type: 1                # 1 for Livox serials LiDAR, 2 for Velodyne LiDAR, 3 for ouster LiDAR, 4 for any other pointcloud input
             scan_line:  4
-            blind: 0.5
+            blind: 1.0
             timestamp_unit: 3
             scan_rate: 10
 
@@ -39,8 +39,7 @@
             init_T: [ 0.298375, -0.00120827, 0.131974 ]
             init_R: [ 0.460357,    0.459737,    0.758802,
              	 -0.705492,    0.708506,  -0.0012503, 
-             	 -0.538575,   -0.535138,    0.651286]
-                 
+             	 -0.538575,   -0.535138,    0.651286]    
 
         publish:
             path_en: true                # true: publish Path
@@ -55,3 +54,29 @@
             pcd_save_en: true
             interval: -1                 # how many LiDAR frames saved in each pcd file; 
                                         # -1 : all frames will be saved in ONE pcd file, may lead to memory crash when having too much frames.
+
+        erasor: 
+            max_range: 80.0
+            num_rings: 20
+            num_sectors: 108
+            min_h: -0.5 # [m] Note that it depends on the distance between body frame and ground contact point of mobile robots
+            max_h: 2.1 # [m] Note that it depends on the distance between body frame and ground contact point of mobile robots
+            scan_ratio_threshold: 0.20 # The Larger, the more aggressive!!
+            minimum_num_pts: 6
+
+            gf_dist_thr: 0.125
+            gf_iter: 3
+            gf_num_lpr: 10
+            gf_th_seeds_height: 0.5
+            num_lowest_pts: 1
+
+        MapUpdater:
+            query_voxel_size: 0.1  
+            map_voxel_size: 0.1
+            voxelization_interval: 10
+            removal_interval: 5
+
+        tf:
+            lidar2body: [0.0, 0.0, 1.97, 0.0, 0.0, 0.0, 1.0] # xyz q_x, q_y, q_z, q_w in order
+        
+        verbose: false # debug print log etc
