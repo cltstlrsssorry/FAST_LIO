@@ -19,7 +19,7 @@
 typedef pcl::PointXYZINormal PointType;
 typedef pcl::PointCloud<PointType> PointCloudXYZI;
 
-struct Config
+struct ERASOR_Config
 {
     /**< Parameters of MapUpdater*/
     double map_voxel_size_ = 0.2;
@@ -57,12 +57,43 @@ struct Config
     
 };
 
+
+struct Octomap_Config
+{
+    //main param, -1 means no range limit
+    float resolution;
+    float maxRange;
+    float minRange;
+
+    float probHit;
+    float probMiss;
+    float thresMin;
+    float thresMax;
+
+    // hether prune tree
+    bool m_prune=true;
+
+    // ===> Ground Segmentation, so that we will not count ground
+    bool filterGroundPlane;
+    float m_groundFilterDistance;
+    float m_groundFilterAngle;
+    float m_groundFilterPlaneDistance;
+
+    // ===> Filter
+    bool filterNoise;
+    int filterMeanK;
+    float StddevMulThresh;
+
+    bool verbose;
+};
+
 struct LocalPointLists
 {
     double time;
-    PointCloudXYZI::Ptr cloudpoint;
+    PointCloudXYZI::Ptr down_size_pc;
+    PointCloudXYZI::Ptr raw_pc;
 
-    LocalPointLists(double time, PointCloudXYZI::Ptr cloudpoint);
+    LocalPointLists(double time, PointCloudXYZI::Ptr down_size_pc,PointCloudXYZI::Ptr raw_pc);
 
 };
 
@@ -78,5 +109,8 @@ extern double last_timestamp_lidar, last_timestamp_imu ;
 double get_time_sec(const builtin_interfaces::msg::Time &time);
 
 rclcpp::Time get_ros_time(double timestamp);
+
+//for octomap
+extern octomap::OcTree* m_octree;
 
 #endif

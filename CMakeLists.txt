@@ -9,7 +9,12 @@ endif()
 ADD_COMPILE_OPTIONS(-std=c++14) # 为编译添加C++14标准选项
 set(CMAKE_CXX_FLAGS "-std=c++14 -O3") # 设置C++编译flags
 
-add_definitions(-DROOT_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/\") # 为项目添加宏定义
+set(ROOT_DIR ${CMAKE_SOURCE_DIR})
+add_definitions(-DROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/") # 为项目添加宏定义
+
+
+# add_definitions(-DROOT_DIR="${ROOT_DIR}")
+# add_compile_definitions(ROOT_DIR="${ROOT_DIR}")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexceptions") # 为C编译添加异常处理选项
 set(CMAKE_CXX_STANDARD 14) # 设置C++标准为14
@@ -61,6 +66,8 @@ find_package(pcl_ros REQUIRED)
 find_package(pcl_conversions REQUIRED)
 find_package(livox_ros_driver2 REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
+find_package(octomap REQUIRED) # 查找octomap库
+find_package(octomap_msgs REQUIRED) # 查找octomap_msgs库
 
 # 设置依赖项
 set(dependencies
@@ -75,11 +82,14 @@ set(dependencies
   pcl_ros
   pcl_conversions
   livox_ros_driver2
+  octomap_msgs
+  octomap
 )
 
 # Thirdparty libraries
 find_package(Eigen3 REQUIRED) # 查找Eigen库
 find_package(PCL REQUIRED COMPONENTS common io) # 查找PCL库
+
 
 message(Eigen: ${EIGEN3_INCLUDE_DIR}) # 输出Eigen包含路径
 message(STATUS "PCL: ${PCL_INCLUDE_DIRS}") # 输出PCL包含路径
@@ -111,12 +121,13 @@ add_executable(fastlio_mapping
 
   src/NodePreProcess.cpp 
   src/NodeCloudSegment.cpp
-  src/NodeCloudDynamicFilter.cpp
+  src/NodeERASOR.cpp
+  src/NodeOctomap.cpp
 
   src/Run.cpp
-  
-  
   )
+
+
 
 # 设置fastlio_mapping的公共头文件目录
 target_include_directories(fastlio_mapping PUBLIC

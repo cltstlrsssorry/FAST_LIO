@@ -20,7 +20,7 @@
 #include <omp.h>
 
 #include"segment/segment.h"
-//#include <fastlio.h>
+// #include <fastlio.h>
 
 using namespace std;
 
@@ -75,14 +75,9 @@ struct orgtype
   double intersect;
   E_jump edj[2];
   Feature ftype;
-  orgtype()
-  {
-    range = 0;
-    edj[Prev] = Nr_nor;
-    edj[Next] = Nr_nor;
-    ftype = Nor;
-    intersect = 2;
-  }
+
+  orgtype();
+
 };
 
 namespace velodyne_ros
@@ -154,11 +149,10 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(livox_ros::LivoxPointXyzrtl,
 
 class Preprocess
 {
-  public:
+public:
 //   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
-
   Preprocess();
-  ~Preprocess();
+  ~Preprocess()=default;
   
   void process(const livox_ros_driver2::msg::CustomMsg::UniquePtr &msg, PointCloudXYZI::Ptr &pcl_out);
   void process(const sensor_msgs::msg::PointCloud2::UniquePtr &msg, PointCloudXYZI::Ptr &pcl_out);

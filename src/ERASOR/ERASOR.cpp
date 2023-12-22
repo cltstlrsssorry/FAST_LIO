@@ -74,7 +74,7 @@ void ERASOR::set_inputs(const PointCloudXYZI &map_voi, const PointCloudXYZI &que
   }
 }
 
-void ERASOR::setConfig(Config &cfg)
+void ERASOR::setConfig(ERASOR_Config &cfg)
 {
   cfg_ = cfg;
 
@@ -528,40 +528,44 @@ void ERASOR::init(R_POD &r_pod)
   }
 }
 
+
 bool ERASOR::is_dynamic_obj_close(R_POD &r_pod_selected, int r_target, int theta_target)
 {
   // Set thetas
-  std::vector<int> theta_candidates;
+  std::vector<int> theta_candidates;//向量 theta_candidates 来存储与目标列相邻的列的索引。
   for (int j = theta_target - 1; j <= theta_target + 1; j++)
   {
     if (j < 0)
     {
+      //如果索引小于零，它会通过向索引添加 cfg_.num_rings_ 来将其包装到网格的另一端。
       theta_candidates.push_back(j + cfg_.num_rings_);
     }
     else if (j >= cfg_.num_sectors_)
     {
+      //如果索引大于或等于 cfg_.num_sectors_，它会通过从索引中减去 cfg_.num_rings_ 来将其包装到网格的另一端。
       theta_candidates.push_back(j - cfg_.num_rings_);
     }
     else
     {
+      //如果索引在有效范围内，它将按原样添加到 theta_candidates 中。
       theta_candidates.push_back(j);
     }
   }
-  for (int r = std::max(0, r_target - 1);
-       r <= std::min(r_target + 1, cfg_.num_rings_ - 1); r++)
+
+  for (int r = std::max(0, r_target - 1); r <= std::min(r_target + 1, cfg_.num_rings_ - 1); r++)
   {
     for (const auto &theta : theta_candidates)
     {
       if ((r == r_target) && (theta == theta_target))
         continue;
 
-      if (r_pod_selected[r][theta].status ==
-          CURR_IS_HIGHER)
+      if (r_pod_selected[r][theta].status == CURR_IS_HIGHER)
       { // Dynamic object is near
         return true;
       }
     }
   }
+  
   return false;
 }
 

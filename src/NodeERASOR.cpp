@@ -1,6 +1,6 @@
-#include "NodeCloudDynamicFilter.h"
+#include "NodeERASOR.h"
 
-NodeCloudDynamicFilter::NodeCloudDynamicFilter(const std::string & name):Node(name, rclcpp::NodeOptions().use_intra_process_comms(true))
+NodeERASOR::NodeERASOR(const std::string & name):Node(name, rclcpp::NodeOptions().use_intra_process_comms(true))
 {
     RCLCPP_INFO(this->get_logger(), "----NodeCloudDynomicFilter----");
 
@@ -28,21 +28,21 @@ NodeCloudDynamicFilter::NodeCloudDynamicFilter(const std::string & name):Node(na
     node_cloud_dynamic_filter_publicher = this->create_publisher<sensor_msgs::msg::PointCloud2>("/node_dynamic_filter", 10);
 
     auto timer1 = std::chrono::milliseconds(static_cast<int64_t>(1000.0/100.0));
-    timer_cre1=rclcpp::create_timer(this, this->get_clock(), timer1, std::bind(&NodeCloudDynamicFilter::timer1_callback, this));
+    timer_cre1=rclcpp::create_timer(this, this->get_clock(), timer1, std::bind(&NodeERASOR::timer1_callback, this));
 
     auto timer2 = std::chrono::milliseconds(static_cast<int64_t>(1000.0));
-    timer_cre2=rclcpp::create_timer(this, this->get_clock(), timer2, std::bind(&NodeCloudDynamicFilter::timer2_callback, this));
+    timer_cre2=rclcpp::create_timer(this, this->get_clock(), timer2, std::bind(&NodeERASOR::timer2_callback, this));
 
     RCLCPP_INFO(this->get_logger(), "----NodeCloudDynomicFilter init finished.----"); // 输出信息，初始化结束
 
 }
 
 
-void NodeCloudDynamicFilter::timer1_callback()
+void NodeERASOR::timer1_callback()
 {
     if(raw_map->points.size()==0) return;
 
-    PointCloudXYZI::Ptr single_pc = featsFromMap_list.front().cloudpoint;
+    PointCloudXYZI::Ptr single_pc = featsFromMap_list.front().down_size_pc;
 
     lidar_end_time = featsFromMap_list.front().time;
 
@@ -80,7 +80,7 @@ void NodeCloudDynamicFilter::timer1_callback()
 }
 
 
-void NodeCloudDynamicFilter::timer2_callback()
+void NodeERASOR::timer2_callback()
 {
     setRawMap(featsFromMap);
 
@@ -91,11 +91,11 @@ void NodeCloudDynamicFilter::timer2_callback()
     laserCloudmsg.header.stamp = get_ros_time(lidar_end_time);
     laserCloudmsg.header.frame_id = "camera_init";
     node_cloud_dynamic_filter_publicher->publish(laserCloudmsg);
-
 }
 
+
 // 读取yaml文件，并配置参数，封装再私有变量中，供其ERASOR类使用
-void NodeCloudDynamicFilter::declare_and_get_parameter()
+void NodeERASOR::declare_and_get_parameter()
 {
     // MapUpdater
     this->declare_parameter<double>("MapUpdater.query_voxel_size", 0.1);
@@ -141,11 +141,12 @@ void NodeCloudDynamicFilter::declare_and_get_parameter()
     this->get_parameter_or<int>("erasor.num_lowest_pts", cfg.num_lowest_pts, 1);
 
     this->get_parameter_or<bool>("verbose", cfg.verbose_, false);
+
 }
 
 
 // 设置原始地图
-void NodeCloudDynamicFilter::setRawMap(PointCloudXYZI::Ptr const &raw_map)
+void NodeERASOR::setRawMap(PointCloudXYZI::Ptr const &raw_map)
 {
     // copy raw map to map_arranged
     map_arranged_.reset(new PointCloudXYZI());
@@ -163,7 +164,7 @@ void NodeCloudDynamicFilter::setRawMap(PointCloudXYZI::Ptr const &raw_map)
 
 
 // 下体素采样
-void NodeCloudDynamicFilter::VoxelPointCloud(const PointCloudXYZI::Ptr &cloud, PointCloudXYZI::Ptr &cloud_voxelized, const double voxel_size)
+void NodeERASOR::VoxelPointCloud(const PointCloudXYZI::Ptr &cloud, PointCloudXYZI::Ptr &cloud_voxelized, const double voxel_size)
 {
     if (voxel_size <= 0.001)
     {
@@ -179,14 +180,14 @@ void NodeCloudDynamicFilter::VoxelPointCloud(const PointCloudXYZI::Ptr &cloud, P
 }
 
 
-const Config NodeCloudDynamicFilter::getCfg() 
+const ERASOR_Config NodeERASOR::getCfg() 
 {
     return cfg; 
 }
 
 
 // 重新分配子图
-void NodeCloudDynamicFilter::reassign_submap(double pose_x, double pose_y)
+void NodeERASOR::reassign_submap(double pose_x, double pose_y)
 {
     // 如果子图尚未初始化，则调用set_submap()函数，将map_arranged_global_中的点云数据分配到map_arranged_和map_arranged_complement_中。
     if (is_submap_not_initialized_)
@@ -221,7 +222,7 @@ void NodeCloudDynamicFilter::reassign_submap(double pose_x, double pose_y)
 
 
 // 设置子图
-void NodeCloudDynamicFilter::set_submap(const PointCloudXYZI &map_global,PointCloudXYZI &submap,PointCloudXYZI &submap_complement,
+void NodeERASOR::set_submap(const PointCloudXYZI &map_global,PointCloudXYZI &submap,PointCloudXYZI &submap_complement,
                                         double x, double y, double submap_size)
 {
     // 清空子图和子图补集
@@ -247,8 +248,9 @@ void NodeCloudDynamicFilter::set_submap(const PointCloudXYZI &map_global,PointCl
     }
 }
 
+
 // 它用于从给定的点云数据中提取感兴趣区域（VoI）。
-void NodeCloudDynamicFilter::fetch_VoI(double x_criterion, double y_criterion, PointCloudXYZI &query_pcd)
+void NodeERASOR::fetch_VoI(double x_criterion, double y_criterion, PointCloudXYZI &query_pcd)
 {
     query_voi_.reset(new PointCloudXYZI());
     map_voi_.reset(new PointCloudXYZI());

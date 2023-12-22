@@ -22,6 +22,7 @@
 class NodeCloudProcess : public rclcpp::Node
 {
 public:
+
     // 结构体初始化
     NodeCloudProcess(const std::string & name);
 
@@ -29,6 +30,7 @@ public:
     ~NodeCloudProcess();
 
 private:
+
     void declare_and_get_parameter();
 
     void standard_pcl_cbk(const sensor_msgs::msg::PointCloud2::UniquePtr msg);
@@ -42,9 +44,8 @@ private:
     string lid_topic, imu_topic;
     bool time_sync_en = false;
     double time_diff_lidar_to_imu = 0.0;
-
     bool is_first_lidar = true;
-
+    
     rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu_;                     // 创建一个订阅器，用于订阅IMU数据。
     rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_pcl_pc_;          // 创建一个订阅器，用于订阅原始点云数据。
     rclcpp::Subscription<livox_ros_driver2::msg::CustomMsg>::SharedPtr sub_pcl_livox_;   // 创建一个订阅器，用于订阅 Livox 点云数据。

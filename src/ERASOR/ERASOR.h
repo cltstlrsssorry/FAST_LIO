@@ -60,7 +60,7 @@ public:
 
   virtual ~ERASOR() = default;
 
-  void setConfig(Config &cfg);
+  void setConfig(ERASOR_Config &cfg);
 
   void set_inputs(const PointCloudXYZI &map_voi, const PointCloudXYZI &query_voi);
 
@@ -75,8 +75,7 @@ private:
   PointCloudXYZI ground_pc_, non_ground_pc_;
   void init(R_POD &r_pod);
   void extract_ground(PointCloudXYZI &src, PointCloudXYZI &dst, PointCloudXYZI &outliers);
-  bool is_dynamic_obj_close(R_POD &r_pod_selected, int r_target,
-                            int theta_target);
+  bool is_dynamic_obj_close(R_POD &r_pod_selected, int r_target, int theta_target);
   void extract_initial_seeds_(const PointCloudXYZI &p_sorted,
                               PointCloudXYZI &init_seeds);
   void estimate_plane_(const PointCloudXYZI &ground);
@@ -96,7 +95,7 @@ private:
 
   void r_pod2pc(const R_POD &sc, PointCloudXYZI &pc);
 
-  Config cfg_;
+  ERASOR_Config cfg_;
   R_POD r_pod_map;      // R_POD of Map
   R_POD r_pod_curr;     // R_POD of current pointcloud
   R_POD r_pod_selected; // R_POD of current pointcloud

@@ -1,4 +1,4 @@
-# pragma once
+#pragma once
 
 #include <cmath>
 #include <math.h>
@@ -44,7 +44,7 @@ public:
   EIGEN_MAKE_ALIGNED_OPERATOR_NEW
 
   ImuProcess();
-  ~ImuProcess();
+  ~ImuProcess() = default;
 
   // 重置类的状态
   void Reset();
@@ -114,7 +114,8 @@ private:
 
   double start_timestamp_;
   double last_lidar_end_time_;
-  int init_iter_num ;
-  bool b_first_frame_ ;
-  bool imu_need_init_ ;
+  int init_iter_num;
+  bool b_first_frame_;
+  bool imu_need_init_;
+  
 };

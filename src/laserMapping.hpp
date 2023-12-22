@@ -1,37 +1,3 @@
-// This is an advanced implementation of the algorithm described in the
-// following paper:
-//   J. Zhang and S. Singh. LOAM: Lidar Odometry and Mapping in Real-time.
-//     Robotics: Science and Systems Conference (RSS). Berkeley, CA, July 2014.
-
-// Modifier: Livox               dev@livoxtech.com
-
-// Copyright 2013, Ji Zhang, Carnegie Mellon University
-// Further contributions copyright (c) 2016, Southwest Research Institute
-// All rights reserved.
-//
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are met:
-//
-// 1. Redistributions of source code must retain the above copyright notice,
-//    this list of conditions and the following disclaimer.
-// 2. Redistributions in binary form must reproduce the above copyright notice,
-//    this list of conditions and the following disclaimer in the documentation
-//    and/or other materials provided with the distribution.
-// 3. Neither the name of the copyright holder nor the names of its
-//    contributors may be used to endorse or promote products derived from this
-//    software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
-// AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
-// ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
-// LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
-// CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
-// SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-// INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
-// CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
-// ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
-// POSSIBILITY OF SUCH DAMAGE.
 #include <omp.h>
 #include <mutex>
 #include <math.h>
@@ -50,34 +16,11 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <visualization_msgs/msg/marker.hpp>
-
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/io/pcd_io.h>
-
-#include <pcl/kdtree/kdtree_flann.h>
-
-#include <pcl/search/search.h>
-#include <pcl/search/kdtree.h>
-#include <pcl/filters/filter_indices.h>
-
-#include <pcl/filters/extract_indices.h>
-#include <pcl/filters/radius_outlier_removal.h>
-#include <pcl/features/normal_3d.h>
-#include <pcl/keypoints/uniform_sampling.h>
-
-#include <pcl/filters/passthrough.h>//直通滤波器
-
-#include <pcl/filters/project_inliers.h>
-
-#include <pcl/segmentation/sac_segmentation.h>
-#include <pcl/segmentation/region_growing.h>//区域生长分割
-#include <pcl/segmentation/extract_clusters.h>
-
-#include <pcl/ModelCoefficients.h>
-
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <std_srvs/srv/trigger.hpp>
@@ -94,6 +37,7 @@
 #define LASER_POINT_COV     (0.001)
 #define MAXN                (720000)
 #define PUBFRAME_PERIOD     (20)
+
 
 /*** Time Log Variables ***/
 double kdtree_incremental_time = 0.0, kdtree_search_time = 0.0, kdtree_delete_time = 0.0;
@@ -178,6 +122,7 @@ geometry_msgs::msg::PoseStamped msg_body_pose;
 
 
 shared_ptr<ImuProcess> p_imu(new ImuProcess());
+
 
 void SigHandle(int sig)
 {
@@ -438,6 +383,7 @@ void map_incremental()
 PointCloudXYZI::Ptr pcl_wait_pub(new PointCloudXYZI());
 PointCloudXYZI::Ptr pcl_wait_save(new PointCloudXYZI());
 PointCloudXYZI::Ptr pcl_wait_map(new PointCloudXYZI());
+
 //cloud_registered
 void publish_frame_world(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLaserCloudFull)
 {
@@ -462,37 +408,6 @@ void publish_frame_world(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::Share
     pubLaserCloudFull->publish(laserCloudmsg);
     publish_count -= PUBFRAME_PERIOD;
 
-    /**************** save map ****************/
-    /* 1. make sure you have enough memories
-    /* 2. noted that pcd save will influence the real-time performences **/
-    /*
-    if (pcd_save_en)
-    {
-        int size = feats_undistort->points.size();
-        PointCloudXYZI::Ptr laserCloudWorld( \
-                        new PointCloudXYZI(size, 1));
-
-        for (int i = 0; i < size; i++)
-        {
-            RGBpointBodyToWorld(&feats_undistort->points[i], \
-                                &laserCloudWorld->points[i]);
-        }
-        *pcl_wait_save += *laserCloudWorld;
-
-        static int scan_wait_num = 0;
-        scan_wait_num ++;
-        if (pcl_wait_save->size() > 0 && pcd_save_interval > 0  && scan_wait_num >= pcd_save_interval)
-        {
-            pcd_index ++;
-            string all_points_dir(string(string(ROOT_DIR) + "PCD/scans_") + to_string(pcd_index) + string(".pcd"));
-            pcl::PCDWriter pcd_writer;
-            cout << "current scan saved to /PCD/" << all_points_dir << endl;
-            pcd_writer.writeBinary(all_points_dir, *pcl_wait_save);
-            pcl_wait_save->clear();
-            scan_wait_num = 0;
-        }
-    }
-    */
 }
 
 
@@ -535,8 +450,8 @@ void publish_effect_world(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::Shar
 }
 
 
-//过滤稀疏图
-void publish_filter_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publish_cloud_filter_map)
+//原始地图发布
+void publish_raw_map(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr publish_cloud_filter_map)
 {
     sensor_msgs::msg::PointCloud2 laserCloudmsg;
     pcl::toROSMsg(*featsFromMap, laserCloudmsg);
@@ -758,6 +673,8 @@ public:
         FOV_DEG = (fov_deg + 10.0) > 179.9 ? 179.9 : (fov_deg + 10.0);
         HALF_FOV_COS = cos((FOV_DEG) * 0.5 * PI_M / 180.0);
 
+        counters_raw_map=0;
+
         _featsArray.reset(new PointCloudXYZI());
 
         memset(point_selected_surf, true, sizeof(point_selected_surf));
@@ -800,7 +717,6 @@ public:
 
         pubLaserCloudEffect_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_effected", 20);
 
-
         pubOdomAftMapped_ = this->create_publisher<nav_msgs::msg::Odometry>("/Odometry", 20);
 
         pubPath_ = this->create_publisher<nav_msgs::msg::Path>("/path", 20);
@@ -810,9 +726,7 @@ public:
         //------------------------------------------------------------------------------------------------------
         auto period_ms = std::chrono::milliseconds(static_cast<int64_t>(1000.0 / 100.0));
         timer_ = rclcpp::create_timer(this, this->get_clock(), period_ms, std::bind(&LaserMappingNode::timer_callback, this));
-
-        auto map_period_ms = std::chrono::milliseconds(static_cast<int64_t>(1000.0));
-        map_pub_timer_ = rclcpp::create_timer(this, this->get_clock(), map_period_ms, std::bind(&LaserMappingNode::map_publish_callback, this));
+        
 
         map_save_srv_ = this->create_service<std_srvs::srv::Trigger>("map_save", std::bind(&LaserMappingNode::map_save_callback, this, std::placeholders::_1, std::placeholders::_2));
         
@@ -947,6 +861,14 @@ private:
         t1 = omp_get_wtime();
         feats_down_size = feats_down_body->points.size();
 
+        PointCloudXYZI::Ptr raw_point_world(new PointCloudXYZI());
+        raw_point_world->resize(feats_undistort->points.size());
+
+        for(int i = 0; i < feats_undistort->points.size(); i++)
+        {
+            pointBodyToWorld(&(feats_undistort->points[i]), &(raw_point_world->points[i]));
+        }
+        
         /*** initialize the map ikdtree ***/
         if(ikdtree.Root_Node == nullptr)
         {
@@ -961,6 +883,9 @@ private:
                 }
                 ikdtree.Build(feats_down_world->points);
             }
+
+            featsFromMap_list.push_back(LocalPointLists(lidar_end_time,feats_down_world,raw_point_world));
+
             return;
         }
 
@@ -974,12 +899,13 @@ private:
         {
             RCLCPP_WARN(this->get_logger(), "No point, skip this scan!\n");
             return;
-        } 
+        }
         
         normvec->resize(feats_down_size);
         feats_down_world->resize(feats_down_size);
 
         V3D ext_euler = SO3ToEuler(state_point.offset_R_L_I);
+        
         fout_pre<<setw(20)<<Measures.lidar_beg_time - first_lidar_time<<" "<<euler_cur.transpose()<<" "<< state_point.pos.transpose()<<" "<<ext_euler.transpose() << " "<<state_point.offset_T_L_I.transpose()<< " " << state_point.vel.transpose() \
         <<" "<<state_point.bg.transpose()<<" "<<state_point.ba.transpose()<<" "<<state_point.grav<< endl;
 
@@ -1010,6 +936,7 @@ private:
         /*** add the feature points to map kdtree ***/
         t3 = omp_get_wtime();
         map_incremental();
+        featsFromMap_list.push_back(LocalPointLists(lidar_end_time,feats_down_world,raw_point_world));
         t5 = omp_get_wtime();
         
         /******* Publish points *******/
@@ -1017,8 +944,23 @@ private:
         if (scan_pub_en)      publish_frame_world(pubLaserCloudFull_);
         if (scan_pub_en && scan_body_pub_en) publish_frame_body(pubLaserCloudFull_body_);
         if (effect_pub_en) publish_effect_world(pubLaserCloudEffect_);
+
+        counters_raw_map++;
+        if (counters_raw_map % 10 == 0)
+        {
+            if (filter_map_enable)
+            {
+                PointVector().swap(ikdtree.PCL_Storage);
+                ikdtree.flatten(ikdtree.Root_Node, ikdtree.PCL_Storage, NOT_RECORD);
+                featsFromMap->clear();
+                featsFromMap->points = ikdtree.PCL_Storage;
+
+                publish_raw_map(pubLaserCloudFilter_);
+            }
+        }
+
         
-        
+
         // if (map_pub_en) publish_map(pubLaserCloudMap_);
 
         /*** Debug variables ***/
@@ -1051,21 +993,8 @@ private:
             dump_lio_state_to_log(fp);
         }
 
-        featsFromMap_list.push_back(LocalPointLists(lidar_end_time,featsFromMap));
+        
 
-    }
-
-    void map_publish_callback()
-    {
-        if (filter_map_enable) 
-        {
-            PointVector().swap(ikdtree.PCL_Storage);
-            ikdtree.flatten(ikdtree.Root_Node, ikdtree.PCL_Storage, NOT_RECORD);
-            featsFromMap->clear();
-            featsFromMap->points = ikdtree.PCL_Storage;
-
-            publish_filter_map(pubLaserCloudFilter_);
-        }
     }
 
     void map_save_callback(std_srvs::srv::Trigger::Request::ConstSharedPtr req, std_srvs::srv::Trigger::Response::SharedPtr res)
@@ -1116,6 +1045,8 @@ private:
     double deltaT, deltaR, aver_time_consu = 0, aver_time_icp = 0, aver_time_match = 0, aver_time_incre = 0, aver_time_solve = 0, aver_time_const_H_time = 0;
     bool flg_EKF_converged, EKF_stop_flg = 0;
     double epsi[23] = {0.001};
+
+    int counters_raw_map;
 
     FILE *fp;
     ofstream fout_pre, fout_out, fout_dbg;

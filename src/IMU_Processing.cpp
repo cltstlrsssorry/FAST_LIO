@@ -4,26 +4,23 @@ const bool time_list(PointType &x, PointType &y) { return (x.curvature < y.curva
 
 ImuProcess::ImuProcess() : b_first_frame_(true), imu_need_init_(true), start_timestamp_(-1)
 {
+  init_iter_num = 1;
+  Q = process_noise_cov();
+  cov_acc = V3D(0.1, 0.1, 0.1);
+  cov_gyr = V3D(0.1, 0.1, 0.1);
+  cov_bias_gyr = V3D(0.0001, 0.0001, 0.0001);
+  cov_bias_acc = V3D(0.0001, 0.0001, 0.0001);
+  mean_acc = V3D(0, 0, -1.0);
+  mean_gyr = V3D(0, 0, 0);
+  angvel_last = Zero3d;
+  Lidar_T_wrt_IMU = Zero3d;
+  Lidar_R_wrt_IMU = Eye3d;
+  last_imu_.reset(new sensor_msgs::msg::Imu());
 
-    init_iter_num = 1;
-    Q = process_noise_cov();
-    cov_acc = V3D(0.1, 0.1, 0.1);
-    cov_gyr = V3D(0.1, 0.1, 0.1);
-    cov_bias_gyr = V3D(0.0001, 0.0001, 0.0001);
-    cov_bias_acc = V3D(0.0001, 0.0001, 0.0001);
-    mean_acc = V3D(0, 0, -1.0);
-    mean_gyr = V3D(0, 0, 0);
-    angvel_last = Zero3d;
-    Lidar_T_wrt_IMU = Zero3d;
-    Lidar_R_wrt_IMU = Eye3d;
-    last_imu_.reset(new sensor_msgs::msg::Imu());
-    
-    init_iter_num = 1;
-    b_first_frame_ = true;
-    imu_need_init_ = true;
+  init_iter_num = 1;
+  b_first_frame_ = true;
+  imu_need_init_ = true;
 }
-
-ImuProcess::~ImuProcess() {}
 
 void ImuProcess::Reset()
 {

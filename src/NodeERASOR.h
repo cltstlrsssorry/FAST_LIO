@@ -21,6 +21,7 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 
 #include <fastlio.h>
+
 #include "ERASOR/ERASOR.h"
 
 
@@ -37,18 +38,18 @@
 #define NUM_PTS_LARGE_ENOUGH_FOR_MAP 20000000
 
 
-class NodeCloudDynamicFilter : public rclcpp::Node
+class NodeERASOR : public rclcpp::Node
 {
 public:
     // 结构体初始化
-    NodeCloudDynamicFilter(const std::string & name);
+    NodeERASOR(const std::string & name);
 
     // 析构函数
-    ~NodeCloudDynamicFilter()=default;
+    ~NodeERASOR()=default;
 
 private:
 
-    Config cfg;
+    ERASOR_Config cfg;
     ERASOR erasor;
 
     rclcpp::TimerBase::SharedPtr timer_cre1;
@@ -84,7 +85,7 @@ private:
 
     void VoxelPointCloud(const PointCloudXYZI::Ptr &cloud, PointCloudXYZI::Ptr &cloud_voxelized, const double voxel_size);
 
-    const Config getCfg();
+    const ERASOR_Config getCfg();
 
     void timer1_callback();
 

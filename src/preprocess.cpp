@@ -3,6 +3,14 @@
 #define RETURN0 0x00
 #define RETURN0AND1 0x10
 
+  orgtype::orgtype()
+  {
+    range = 0;
+    edj[Prev] = Nr_nor;
+    edj[Next] = Nr_nor;
+    ftype = Nor;
+    intersect = 2;
+  }
 
 Preprocess::Preprocess() : feature_enabled(0), lidar_type(AVIA), blind(0.01), point_filter_num(1)
 {
@@ -30,11 +38,6 @@ Preprocess::Preprocess() : feature_enabled(0), lidar_type(AVIA), blind(0.01), po
   cos160 = cos(cos160 / 180 * M_PI);
   smallp_intersect = cos(smallp_intersect / 180 * M_PI);
 
-}
-
-
-Preprocess::~Preprocess()
-{
 }
 
 
