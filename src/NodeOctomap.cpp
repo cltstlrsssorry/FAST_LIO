@@ -7,21 +7,32 @@ NodeOctomap::NodeOctomap(const std::string & name):Node(name, rclcpp::NodeOption
 
     setConfig();
 
+    count = 1;
+
+    publish_octomap=this->create_publisher<octomap_msgs::msg::Octomap>("publish_octomap",10);
+
     m_octree = new octomap::OcTree(config.resolution);
+    // 创建了一个新的 OcTree 对象，并将其分辨率设置为 config.resolution。这个对象的指针被存储在 m_octree 中。
+    // m_octree->setResolution(config.resolution);
+
+    // 当传感器检测到障碍物时，该网格被认为是占用的概率。
     m_octree->setProbHit(config.probHit);
+
+    //当传感器没有检测到障碍物时，该网格被认为是空闲的概率。
     m_octree->setProbMiss(config.probMiss);
+
+    // 设置了一个网格被认为是空闲的概率阈值。如果一个网格的占用概率低于这个值，那么它就被认为是空闲的。
     m_octree->setClampingThresMin(config.thresMin);
+
+    // 设置了一个网格被认为是占用的概率阈值。如果一个网格的占用概率高于这个值，那么它就被认为是占用的。
     m_octree->setClampingThresMax(config.thresMax);
+
+    m_octree->setOccupancyThres(config.opccupancyThres);
 
     m_maxTreeDepth=m_treeDepth;
     ground_pts.reset(new PointCloudXYZI);
     noise_cloud.reset(new PointCloudXYZI);
     raw_map_ptr_.reset(new PointCloudXYZI);
-
-
-    Octomap_publisher = this->create_publisher<sensor_msgs::msg::PointCloud2>("/node_octomap", 10);
-
-    count = 0;
 
     auto timer = std::chrono::milliseconds(static_cast<int64_t>(1000.0 / 100.0));
     timer_cre = rclcpp::create_timer(this, this->get_clock(), timer, std::bind(&NodeOctomap::timer_callback, this));
@@ -29,191 +40,65 @@ NodeOctomap::NodeOctomap(const std::string & name):Node(name, rclcpp::NodeOption
     RCLCPP_INFO(this->get_logger(), "----NodeOctomap init finished.----"); // 输出信息，初始化结束
 }
 
-
-void NodeOctomap::setConfig()
-{
-    this->declare_parameter<float>("Octomap.resolution", 0.1);
-    this->declare_parameter<float>("Octomap.maxRange", -1.0);
-    this->declare_parameter<float>("Octomap.minRange", -1.0);
-
-    this->declare_parameter<float>("Octomap.probHit", 0.7);
-    this->declare_parameter<float>("Octomap.probMiss", 0.4);
-    this->declare_parameter<float>("Octomap.thresMin", 0.12);
-    this->declare_parameter<float>("Octomap.thresMax", 0.97);
-
-    this->declare_parameter<bool>("Octomap.m_prune", true);
-    this->declare_parameter<bool>("verbose", false);
-
-    this->declare_parameter<bool>("Octomap.filterGroundPlane", true);
-    this->declare_parameter<float>("Octomap.m_groundFilterDistance", 0.04);
-    this->declare_parameter<float>("Octomap.m_groundFilterAngle", 0.15);
-    this->declare_parameter<float>("Octomap.m_groundFilterPlaneDistance", 0.15);
-
-    this->declare_parameter<bool>("Octomap.filterNoise", false);
-    this->declare_parameter<float>("Octomap.StddevMulThresh", 1.0);
-    this->declare_parameter<int>("Octomap.filterMeanK", 50);//pcl::StatisticalOutlierRemoval
-
-    this->get_parameter_or<float>("Octomap.resolution", config.resolution, 0.1);
-    this->get_parameter_or<float>("Octomap.maxRange", config.maxRange, -1.0);
-    this->get_parameter_or<float>("Octomap.minRange", config.minRange, -1.0);
-
-    this->get_parameter_or<float>("Octomap.probHit", config.probHit, 0.7);
-    this->get_parameter_or<float>("Octomap.probMiss", config.probMiss, 0.4);
-    this->get_parameter_or<float>("Octomap.thresMin", config.thresMin, 0.12);
-    this->get_parameter_or<float>("Octomap.thresMax", config.thresMax, 0.97);
-
-    this->get_parameter_or<bool>("Octomap.m_prune", config.m_prune, true);
-    this->get_parameter_or<bool>("verbose", config.verbose, false);
-
-    this->get_parameter_or<bool>("Octomap.filterGroundPlane", config.filterGroundPlane, true);
-    if (config.filterGroundPlane)
-    {
-        this->get_parameter_or<float>("octomap.m_groundFilterDistance", config.m_groundFilterDistance, 0.04);
-        this->get_parameter_or<float>("octomap.m_groundFilterAngle", config.m_groundFilterAngle, 0.15);
-        this->get_parameter_or<float>("octomap.m_groundFilterPlaneDistance", config.m_groundFilterPlaneDistance, 0.15);
-    }
-
-    this->get_parameter_or<bool>("octomap.filterNoise", config.filterNoise, false);
-    if (config.filterNoise)
-    {
-        this->get_parameter_or<float>("octomap.StddevMulThresh", config.StddevMulThresh, 1.0);
-        this->get_parameter_or<int>("octomap.filterMeanK", config.filterMeanK, 50);
-    }
-}
-
 void NodeOctomap::timer_callback()
 {
-    if (featsFromMap_list.empty())
-        return;
-
-    PointCloudXYZI::Ptr temp_down_size_cloud = featsFromMap_list.front().down_size_pc;
-    if (temp_down_size_cloud->empty())
-        return;
-    
-    //累积原始点源
-    PointCloudXYZI::Ptr temp_raw_cloud = featsFromMap_list.front().raw_pc;
-    *raw_map_ptr_ += *temp_raw_cloud;
-
-    
-    std::cout<<"createOctomap"<<std::endl;
-    createOctomap(temp_down_size_cloud);
-
-    if (count > 9)
+    if (!down_size_points_list.empty()) 
     {
-        double temp_time = featsFromMap_list.front().time;
-        std::cout<<"publishMap"<<std::endl;
-        publishMap(temp_time);
-        count = 0;
-    }else{
+        updateOccupancy();
+        if (count % 10 == 0)
+        {
+            publishOctomap();
+            count=0;
+        }
         count++;
     }
-
-    featsFromMap_list.pop_front();
-
-    std::cout << "temp_down_size_cloud size: " << temp_down_size_cloud->size() << std::endl;
-    std::cout << "octomap size: " << m_octree->size() << std::endl;
-    std::cout << "raw_map size: " << raw_map_ptr_->size() << std::endl;
-    std::cout << "noise_cloud size: " << noise_cloud->size() << std::endl;
-    std::cout << "count: " << count << std::endl;
 }
 
-void NodeOctomap::publishMap(double timestamp) 
+void NodeOctomap::updateOccupancy()
 {
-    PointCloudXYZI::Ptr octomap_map_(new PointCloudXYZI);
+    PointCloudXYZI::Ptr single_pc = down_size_points_list.begin()->points;
+    timestamp = down_size_points_list.begin()->time;
+    down_size_points_list.pop_front();
 
-    VoxelPointCloud(raw_map_ptr_, raw_map_ptr_, config.resolution);
-    std::cout << "raw_map_ptr_ size: " << raw_map_ptr_->size() << std::endl;
-    //PointCloudXYZI::Ptr map_filtered(new PointCloudXYZI);
-    //VoxelPointCloud(raw_map_ptr_, map_filtered, config.resolution);
+    if (single_pc->empty()) return;
+    if (single_pc->points.size() < 50) return;
 
-    for (auto &pt : raw_map_ptr_->points)
-    {
-        octomap::point3d point(pt.x, pt.y, pt.z);
+    Eigen::Vector4f sensor_pos = single_pc->sensor_origin_;
 
-        octomap::OcTreeNode *node = m_octree->search(point);
-
-        if (node == NULL) continue;
-
-        if (m_octree->isNodeOccupied(node)) octomap_map_->push_back(pt);
-
-    }
-
-    VoxelPointCloud(octomap_map_, octomap_map_, config.resolution);
-
-    if (octomap_map_->size() == 0)
-    {
-        RCLCPP_INFO(this->get_logger(), "octomap_map_ is empty, no map is saved");
-        return;
-    }
-
-    sensor_msgs::msg::PointCloud2 laserCloudmsg;
-    pcl::toROSMsg(*octomap_map_, laserCloudmsg);
-
-    // laserCloudmsg.header.stamp = ros::Time().fromSec(lidar_end_time);
-    laserCloudmsg.header.stamp = get_ros_time(timestamp);
-    laserCloudmsg.header.frame_id = "camera_init";
-    Octomap_publisher->publish(laserCloudmsg);
-
-}
-
-void NodeOctomap::VoxelPointCloud(const PointCloudXYZI::Ptr &cloud, PointCloudXYZI::Ptr &cloud_voxelized, const double voxel_size)
-{
-    if (cloud->empty())
-        return;
-    
-    pcl::VoxelGrid<PointType> voxel_grid;
-    voxel_grid.setInputCloud(cloud);
-    voxel_grid.setLeafSize(voxel_size, voxel_size, voxel_size);
-    voxel_grid.filter(*cloud_voxelized);
-}
-
-void NodeOctomap::createOctomap(PointCloudXYZI::Ptr &single_pc)
-{
-    if (single_pc->empty() || single_pc->points.size() < 60)
-        return;
-
-    std::cout<<"1"<<std::endl;
-    float x_curr=single_pc->sensor_origin_[0]; // single_pc->sensor_origin_[0
-    float y_curr=single_pc->sensor_origin_[1];
-    float z_curr=single_pc->sensor_origin_[2];
-
-    std::cout<<"2"<<std::endl;
-    PointCloudXYZI::Ptr cloud_filtered (new PointCloudXYZI);
+    PointCloudXYZI::Ptr cloud_filtered(new PointCloudXYZI);
     if (config.filterNoise)
     {
-        std::cout<<"2.1"<<std::endl;
-        pcl::StatisticalOutlierRemoval<PointType> sor(true);
-        sor.setInputCloud(single_pc);
-        sor.setMeanK(config.filterMeanK);
-        sor.setStddevMulThresh(config.StddevMulThresh);
-        sor.filter(*cloud_filtered);
+        pcl::StatisticalOutlierRemoval<PointType> sor(true); // 创建一个新的 StatisticalOutlierRemoval 对象，用于进行统计离群值移除。
+        sor.setInputCloud(single_pc);                        // 设置输入的点云。
+        sor.setMeanK(config.filterMeanK);                    // 设置用于计算每个点的平均距离的邻居数量。
+        sor.setStddevMulThresh(config.StddevMulThresh);      // 设置标准差乘数阈值，这是决定一个点是否为离群值的阈值。
+        sor.filter(*cloud_filtered);                         // 进行过滤，结果将存储在 cloud_filtered 中。
 
-        std::cout<<"2.2"<<std::endl;
-        auto noise_indices = sor.getRemovedIndices();
+        auto noise_indices = sor.getRemovedIndices(); // 获取被移除的点的索引。
 
-        std::cout<<"2.3"<<std::endl;
-        noise_cloud->clear();
+        noise_cloud->clear(); // 清空 noise_cloud。
+
+        // 创建一个新的 ExtractIndices 对象，用于提取索引。
+        /**
         pcl::ExtractIndices<PointType> eifilter(false); // Initializing with true will allow us to extract the removed indices
-        eifilter.setInputCloud(single_pc);
-        eifilter.setIndices(noise_indices);
-        eifilter.filter(*noise_cloud);
-        
+        eifilter.setInputCloud(single_pc);              // 设置输入的点云。
+        eifilter.setIndices(noise_indices);             // 设置要提取的索引。
+        eifilter.filter(*noise_cloud);                  // 进行提取，结果将存储在 noise_cloud 中。
+        */
+
     }
     else
     {
-        std::cout<<"2.4"<<std::endl;
         std::vector<int> indices;
         pcl::removeNaNFromPointCloud(*single_pc, *cloud_filtered, indices);
     }
 
-    std::cout<<"3"<<std::endl;
-    octomap::point3d sensor_origin(x_curr, y_curr, z_curr);
+    octomap::point3d sensor_origin(sensor_pos.x(), sensor_pos.y(), sensor_pos.z());
     if (!m_octree->coordToKeyChecked(sensor_origin, m_updateBBXMin) || !m_octree->coordToKeyChecked(sensor_origin, m_updateBBXMax))
     {
-        RCLCPP_INFO(this->get_logger(), "Could not generate Key for origin: %f, %f, %f",sensor_origin.x(), sensor_origin.y(), sensor_origin.z());
+        RCLCPP_INFO(this->get_logger(), "Could not generate Key for origin: %f, %f, %f", sensor_origin.x(), sensor_origin.y(), sensor_origin.z());
     }
 
-    std::cout<<"4"<<std::endl;
     PointCloudXYZI::Ptr pc_nonground(new PointCloudXYZI);
     PointCloudXYZI::Ptr pc_ground(new PointCloudXYZI);
     if (config.filterGroundPlane)
@@ -225,7 +110,6 @@ void NodeOctomap::createOctomap(PointCloudXYZI::Ptr &single_pc)
         pc_nonground = cloud_filtered;
     }
 
-    std::cout<<"5"<<std::endl;
     // instead of direct scan insertion, compute update to filter ground:
     octomap::KeySet free_cells, occupied_cells;
 
@@ -234,7 +118,7 @@ void NodeOctomap::createOctomap(PointCloudXYZI::Ptr &single_pc)
     {
         octomap::point3d point(it->x, it->y, it->z);
 
-        if ((config.minRange > 0) && (point - sensor_origin).norm() < config.minRange)
+        if ((config.minRange > 0.0) && (point - sensor_origin).norm() < config.minRange)
             continue;
 
         // maxrange check
@@ -244,6 +128,8 @@ void NodeOctomap::createOctomap(PointCloudXYZI::Ptr &single_pc)
         }
 
         // only clear space (ground points)
+        // 计算从传感器原点到当前点的射线经过的所有网格的键，并将这些键存储在 m_keyRay 中。
+        // 如果计算成功，那么这些键会被添加到 free_cells 集合中，表示这些网格是空闲的。
         if (m_octree->computeRayKeys(sensor_origin, point, m_keyRay))
         {
             free_cells.insert(m_keyRay.begin(), m_keyRay.end());
@@ -257,11 +143,11 @@ void NodeOctomap::createOctomap(PointCloudXYZI::Ptr &single_pc)
         }
         else
         {
-            if(config.verbose) RCLCPP_INFO(this->get_logger(), "Could not generate Key for endpoint ");
+            if (config.verbose)
+                RCLCPP_INFO(this->get_logger(), "Could not generate Key for endpoint ");
             // LOG_IF(WARNING, cfg_.verbose_) << "Could not generate Key for endpoint " << point;
         }
     }
-
 
     if (pc_ground->size() > 0)
     {
@@ -269,28 +155,32 @@ void NodeOctomap::createOctomap(PointCloudXYZI::Ptr &single_pc)
         *ground_pts += *pc_ground;
     }
 
-
     // noise directly to occupied, no need ray for them
-    for (PointCloudXYZI::const_iterator it = noise_cloud->begin(); it != noise_cloud->end(); ++it)
+    if(0)
     {
-        octomap::point3d point(it->x, it->y, it->z);
-
-        if ((config.minRange > 0) && (point - sensor_origin).norm() < config.minRange) continue;
-
-        // maxrange check
-        if ((config.maxRange > 0.0) && ((point - sensor_origin).norm() > config.maxRange))
+        for (PointCloudXYZI::const_iterator it = noise_cloud->begin(); it != noise_cloud->end(); ++it)
         {
-            point = sensor_origin + (point - sensor_origin).normalized() * config.maxRange;
-        }
+            octomap::point3d point(it->x, it->y, it->z);
 
-        octomap::OcTreeKey endKey;
-        if (m_octree->coordToKeyChecked(point, endKey))
-        {
-            occupied_cells.insert(endKey);
-            updateMinKey(endKey, m_updateBBXMin);
-            updateMaxKey(endKey, m_updateBBXMax);
+            if ((config.minRange > 0) && (point - sensor_origin).norm() < config.minRange)
+                continue;
+
+            // maxrange check
+            if ((config.maxRange > 0.0) && ((point - sensor_origin).norm() > config.maxRange))
+            {
+                point = sensor_origin + (point - sensor_origin).normalized() * config.maxRange;
+            }
+
+            octomap::OcTreeKey endKey;
+            if (m_octree->coordToKeyChecked(point, endKey))
+            {
+                occupied_cells.insert(endKey);
+                updateMinKey(endKey, m_updateBBXMin);
+                updateMaxKey(endKey, m_updateBBXMax);
+            }
         }
     }
+
 
     for (PointCloudXYZI::const_iterator it = pc_nonground->begin(); it != pc_nonground->end(); ++it)
     {
@@ -298,8 +188,10 @@ void NodeOctomap::createOctomap(PointCloudXYZI::Ptr &single_pc)
 
         // range filtering
         // (point - sensor_origin).norm() L2范数 计算距离
-        if ((config.minRange > 0) && ((point - sensor_origin).norm() < config.minRange)) continue;
-
+        if ((config.minRange > 0.0) && ((point - sensor_origin).norm() < config.minRange))
+            continue;
+        
+        // 如果点到传感器原点的距离小于最大范围，则处理此点。
         if ((config.maxRange < 0.0) || ((point - sensor_origin).norm() <= config.maxRange))
         {
             // free cells  计算从传感器原点到点的光线路径上的所有八叉树节点的键
@@ -324,6 +216,7 @@ void NodeOctomap::createOctomap(PointCloudXYZI::Ptr &single_pc)
         else
         {
             octomap::point3d new_end = sensor_origin + (point - sensor_origin).normalized() * config.maxRange;
+
             if (m_octree->computeRayKeys(sensor_origin, new_end, m_keyRay))
             {
                 free_cells.insert(m_keyRay.begin(), m_keyRay.end());
@@ -343,7 +236,6 @@ void NodeOctomap::createOctomap(PointCloudXYZI::Ptr &single_pc)
         }
     }
 
-
     for (octomap::KeySet::iterator it = free_cells.begin(), end = free_cells.end(); it != end; ++it)
     {
         m_octree->updateNode(*it, false);
@@ -354,11 +246,79 @@ void NodeOctomap::createOctomap(PointCloudXYZI::Ptr &single_pc)
         m_octree->updateNode(*it, true);
     }
 
-    if(config.m_prune)
+    if (config.m_prune)
         m_octree->prune();
-    
-    
 }
+
+void NodeOctomap::publishOctomap()
+{
+    octomap_msgs::msg::Octomap octoMsg;
+    octomap_msgs::binaryMapToMsg(*m_octree, octoMsg);
+
+    // laserCloudmsg.header.stamp = ros::Time().fromSec(lidar_end_time);
+    octoMsg.header.stamp = get_ros_time(timestamp);
+    octoMsg.header.frame_id = "camera_init";
+    publish_octomap->publish(octoMsg);
+}
+
+
+void NodeOctomap::setConfig()
+{
+    this->declare_parameter<float>("Octomap.resolution", 0.1);
+
+    this->declare_parameter<float>("Octomap.maxRange", -1.0);
+    this->declare_parameter<float>("Octomap.minRange", -1.0);
+
+    this->declare_parameter<float>("Octomap.probHit", 0.7);
+    this->declare_parameter<float>("Octomap.probMiss", 0.4);
+    this->declare_parameter<float>("Octomap.thresMin", 0.12);
+    this->declare_parameter<float>("Octomap.thresMax", 0.97);
+    
+    this->declare_parameter<float>("Octomap.opccupancyThres", 0.7);
+
+    this->declare_parameter<bool>("Octomap.m_prune", true);
+    this->declare_parameter<bool>("verbose", false);
+
+    this->declare_parameter<bool>("Octomap.filterGroundPlane", true);
+    this->declare_parameter<float>("Octomap.m_groundFilterDistance", 0.04);
+    this->declare_parameter<float>("Octomap.m_groundFilterAngle", 0.15);
+    this->declare_parameter<float>("Octomap.m_groundFilterPlaneDistance", 0.15);
+
+    this->declare_parameter<bool>("Octomap.filterNoise", false);
+    this->declare_parameter<float>("Octomap.StddevMulThresh", 1.0);
+    this->declare_parameter<int>("Octomap.filterMeanK", 50);//pcl::StatisticalOutlierRemoval
+
+    this->get_parameter_or<double>("Octomap.resolution", config.resolution, 0.1);
+    this->get_parameter_or<float>("Octomap.maxRange", config.maxRange, -1.0);
+    this->get_parameter_or<float>("Octomap.minRange", config.minRange, -1.0);
+
+    this->get_parameter_or<float>("Octomap.probHit", config.probHit, 0.7);
+    this->get_parameter_or<float>("Octomap.probMiss", config.probMiss, 0.4);
+    this->get_parameter_or<float>("Octomap.thresMin", config.thresMin, 0.12);
+    this->get_parameter_or<float>("Octomap.thresMax", config.thresMax, 0.97);
+
+    this->get_parameter_or<float>("Octomap.opccupancyThres", config.opccupancyThres, 0.7);
+
+    this->get_parameter_or<bool>("Octomap.m_prune", config.m_prune, true);
+    this->get_parameter_or<bool>("verbose", config.verbose, false);
+
+    this->get_parameter_or<bool>("Octomap.filterGroundPlane", config.filterGroundPlane, true);
+    if (config.filterGroundPlane)
+    {
+        this->get_parameter_or<float>("octomap.m_groundFilterDistance", config.m_groundFilterDistance, 0.04);
+        this->get_parameter_or<float>("octomap.m_groundFilterAngle", config.m_groundFilterAngle, 0.15);
+        this->get_parameter_or<float>("octomap.m_groundFilterPlaneDistance", config.m_groundFilterPlaneDistance, 0.15);
+    }
+
+    this->get_parameter_or<bool>("octomap.filterNoise", config.filterNoise, false);
+    if (config.filterNoise)
+    {
+        this->get_parameter_or<float>("octomap.StddevMulThresh", config.StddevMulThresh, 1.0);
+        this->get_parameter_or<int>("octomap.filterMeanK", config.filterMeanK, 50);
+    }
+}
+
+
 
 
 void NodeOctomap::filterGroundPlane(PointCloudXYZI::Ptr const &pc, PointCloudXYZI::Ptr &ground, PointCloudXYZI::Ptr &nonground)
@@ -371,22 +331,22 @@ void NodeOctomap::filterGroundPlane(PointCloudXYZI::Ptr const &pc, PointCloudXYZ
     }
 
     // plane detection for ground plane removal:
-    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
-    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+    pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);// 创建一个新的 ModelCoefficients 对象，用于存储模型的系数。
+    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);// 创建一个新的 PointIndices 对象，用于存储内点的索引。
 
     // Create the segmentation object and set up:
-    pcl::SACSegmentation<PointType> seg;
-    seg.setOptimizeCoefficients(true);
+    pcl::SACSegmentation<PointType> seg;// 创建一个新的 SACSegmentation 对象，用于进行分割。
+    seg.setOptimizeCoefficients(true);// 设置优化系数为 true，这将使得算法尝试优化模型的系数。
 
-    seg.setModelType(pcl::SACMODEL_PERPENDICULAR_PLANE);
-    seg.setMethodType(pcl::SAC_RANSAC);
-    seg.setDistanceThreshold(config.m_groundFilterDistance);
-    seg.setAxis(Eigen::Vector3f(0, 0, 1));
-    seg.setEpsAngle(config.m_groundFilterAngle);
+    seg.setModelType(pcl::SACMODEL_PERPENDICULAR_PLANE);// 设置模型类型为 SACMODEL_PERPENDICULAR_PLANE，这表示我们想要检测的是垂直于某个方向的平面。
+    seg.setMethodType(pcl::SAC_RANSAC);// 设置方法类型为 SAC_RANSAC，这表示我们使用 RANSAC 算法进行模型估计。
+    seg.setDistanceThreshold(config.m_groundFilterDistance);//设置距离阈值，这是决定一个点是否为内点的阈值。
+    seg.setAxis(Eigen::Vector3f(0, 0, 1));//设置平面的法线方向为 Z 轴。
+    seg.setEpsAngle(config.m_groundFilterAngle);//设置角度阈值，这是决定平面的法线方向是否足够垂直的阈值。
 
     // Create the filtering object
-    seg.setInputCloud(pc);
-    seg.segment(*inliers, *coefficients);
+    seg.setInputCloud(pc);// 设置输入的点云。
+    seg.segment(*inliers, *coefficients);//进行分割，结果将存储在 inliers 和 coefficients 中。
 
     if (inliers->indices.size() == 0)
     {

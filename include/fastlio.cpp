@@ -2,13 +2,26 @@
 
 PointCloudXYZI::Ptr featsFromMap(new PointCloudXYZI());
 
-std::deque<LocalPointLists> featsFromMap_list;
+PointCloudXYZI::Ptr segment_map(new PointCloudXYZI());
 
-LocalPointLists::LocalPointLists(double time, PointCloudXYZI::Ptr down_size_pc,PointCloudXYZI::Ptr raw_pc)
+std::deque<PointLists> down_size_points_list;
+
+std::deque<PointLists> raw_points_list;
+
+PointLists filter_dynamic_map;
+
+octomap::OcTree* m_octree;
+
+PointLists::PointLists()
+{
+    this->time = 0;
+    this->points = PointCloudXYZI::Ptr(new PointCloudXYZI());
+}
+
+PointLists::PointLists(double time, PointCloudXYZI::Ptr points)
 {
     this->time = time;
-    this->down_size_pc = down_size_pc;
-    this->raw_pc = raw_pc;
+    this->points = points;
 }
 
 double get_time_sec(const builtin_interfaces::msg::Time &time)

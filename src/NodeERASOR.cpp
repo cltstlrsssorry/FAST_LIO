@@ -6,7 +6,7 @@ NodeERASOR::NodeERASOR(const std::string & name):Node(name, rclcpp::NodeOptions(
 
     //map_updater
 
-    std::deque<LocalPointLists> featsFromMap_list;
+    std::deque<PointLists> featsFromMap_list;
 
     declare_and_get_parameter();//创建MapUpdater对象，并读取配置文件
 

@@ -12,6 +12,8 @@ set(CMAKE_CXX_FLAGS "-std=c++14 -O3") # 设置C++编译flags
 set(ROOT_DIR ${CMAKE_SOURCE_DIR})
 add_definitions(-DROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/") # 为项目添加宏定义
 
+cmake_policy(SET CMP0074 NEW) 
+
 
 # add_definitions(-DROOT_DIR="${ROOT_DIR}")
 # add_compile_definitions(ROOT_DIR="${ROOT_DIR}")
@@ -120,9 +122,10 @@ add_executable(fastlio_mapping
   src/segment/segment.cpp
 
   src/NodePreProcess.cpp 
-  src/NodeCloudSegment.cpp
-  src/NodeERASOR.cpp
+  src/NodeSegment.cpp
+  # src/NodeERASOR.cpp
   src/NodeOctomap.cpp
+  src/NodePublishMap.cpp
 
   src/Run.cpp
   )

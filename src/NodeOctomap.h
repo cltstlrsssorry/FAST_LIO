@@ -7,6 +7,7 @@
 
 #include <octomap/octomap.h>
 #include <octomap_msgs/msg/octomap.hpp>
+#include <octomap_msgs/conversions.h>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -34,14 +35,14 @@ public:
 private:
 
     rclcpp::TimerBase::SharedPtr timer_cre;
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr Octomap_publisher;
 
-    //计数器
+    rclcpp::Publisher<octomap_msgs::msg::Octomap>::SharedPtr publish_octomap;
+
+    double timestamp;
+
     int count;
 
     Octomap_Config config;
-
-    
 
     octomap::KeyRay m_keyRay;
     octomap::OcTreeKey m_updateBBXMin;
@@ -59,16 +60,13 @@ private:
 
     void timer_callback();
 
-    void publishMap(double timestamp);
+    void updateOccupancy();
 
-    //filter dynamic points
-    void createOctomap(PointCloudXYZI::Ptr &single_pc);
+    void publishOctomap();
 
     //void updateOccupancy(PointCloudXYZI::Ptr single_pc);
 
     void filterGroundPlane(PointCloudXYZI::Ptr const& pc, PointCloudXYZI::Ptr &ground, PointCloudXYZI::Ptr &nonground);
-
-    void VoxelPointCloud(const PointCloudXYZI::Ptr& cloud, PointCloudXYZI::Ptr& cloud_voxelized, const double voxel_size);
 
 
 protected:

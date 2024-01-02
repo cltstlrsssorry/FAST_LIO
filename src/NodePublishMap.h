@@ -6,11 +6,9 @@
 #include <unistd.h>
 
 #include <octomap/octomap.h>
-#include <octomap_msgs/msg/octomap.hpp>
-
 #include <rclcpp/rclcpp.hpp>
 
-#include<fastlio.h>
+#include <fastlio.h>
 
 #include <pcl/point_cloud.h>
 #include <pcl/filters/statistical_outlier_removal.h>
@@ -21,52 +19,43 @@
 #include <pcl/common/common.h>
 #include <pcl/ModelCoefficients.h>
 #include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/filters/uniform_sampling.h>
+#include <pcl/search/kdtree.h>
+#include <pcl/segmentation/extract_clusters.h>
 
 class NodePublishMap : public rclcpp::Node
 {
 public:
-    NodePublishMap(const std::string & name);
+  NodePublishMap(const std::string &name);
 
-    // 析构函数
-    ~NodePublishMap()=default;
-
+  // 析构函数
+  ~NodePublishMap() = default;
 
 private:
+  int publish_count;
+  double timestamp;
+  double uniform_size;
 
-    Octomap_Config config;
+  rclcpp::TimerBase::SharedPtr timer_cre;
 
-    rclcpp::TimerBase::SharedPtr timer_cre;
+  rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr Octomap_publisher;
 
-    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr Octomap_publisher;
+  PointCloudXYZI::Ptr raw_map_ptr_;
 
-    PointCloudXYZI::Ptr raw_map_ptr_;
+  PointCloudXYZI::Ptr raw_map_voxel_ptr_;
 
-    PointCloudXYZI::Ptr noise_cloud;
+  PointCloudXYZI::Ptr raw_map_ptr_seg_;
 
-    void setConfig();
+  PointCloudXYZI::Ptr filter_dynamic_map_ptr_;
 
-    void timer_callback();
+  void getConfig();
 
-    void publishMap(double timestamp);
+  void timer_callback();
 
-    void createOctomap(PointCloudXYZI::Ptr &single_pc);
+  void VoxelPointCloud(PointCloudXYZI::Ptr &cloud, PointCloudXYZI::Ptr &cloud_voxelized, double voxel_size);
 
+  void UniformSamplingPointCloud(PointCloudXYZI::Ptr &cloud, PointCloudXYZI::Ptr &cloud_uniformed, double leaf_size);
 
-    void VoxelPointCloud(const PointCloudXYZI::Ptr& cloud, PointCloudXYZI::Ptr& cloud_voxelized, const double voxel_size);
+  void segmentcrave(PointCloudXYZI::Ptr &cloud, PointCloudXYZI::Ptr &cloud_segmented);
 
-
-protected:
-
-    inline static void updateMinKey(const octomap::OcTreeKey& in, octomap::OcTreeKey& min) {
-      for (unsigned i = 0; i < 3; ++i)
-        min[i] = std::min(in[i], min[i]);
-    };
-
-    inline static void updateMaxKey(const octomap::OcTreeKey& in, octomap::OcTreeKey& max) {
-      for (unsigned i = 0; i < 3; ++i)
-        max[i] = std::max(in[i], max[i]);
-    };
-
-
-    
 };

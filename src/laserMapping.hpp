@@ -16,11 +16,14 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <nav_msgs/msg/path.hpp>
 #include <visualization_msgs/msg/marker.hpp>
+
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/point_cloud.h>
 #include <pcl/point_types.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/io/pcd_io.h>
+#include <pcl/filters/uniform_sampling.h>
+
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 #include <std_srvs/srv/trigger.hpp>
@@ -63,7 +66,7 @@ double gyr_cov = 0.1, acc_cov = 0.1, b_gyr_cov = 0.0001, b_acc_cov = 0.0001;
 
 double filter_size_corner_min = 0, filter_size_surf_min = 0, filter_size_map_min = 0, fov_deg = 0;
 //modifed by hl
-double filter_radius_filter_map = 0, radius_filter_map = 0;
+double radius_filter_map = 0;
 
 double cube_len = 0, HALF_FOV_COS = 0, FOV_DEG = 0, total_distance = 0, lidar_end_time = 0, first_lidar_time = 0.0;
 int    effct_feat_num = 0, time_log_counter = 0, scan_count = 0, publish_count = 0;
@@ -98,6 +101,8 @@ PointCloudXYZI::Ptr lastObstacles(new PointCloudXYZI());
 PointCloudXYZI::Ptr currentObstacles(new PointCloudXYZI());
 
 pcl::VoxelGrid<PointType> downSizeFilterSurf;
+pcl::UniformSampling<PointType> uniform_sampling_filter;
+pcl::UniformSampling<PointType> uniform_sampling_filter_raw;
 pcl::VoxelGrid<PointType> downSizeFilterMap;
 
 KD_TREE<PointType> ikdtree;
@@ -120,9 +125,7 @@ nav_msgs::msg::Odometry odomAftMapped;
 geometry_msgs::msg::Quaternion geoQuat;
 geometry_msgs::msg::PoseStamped msg_body_pose;
 
-
 shared_ptr<ImuProcess> p_imu(new ImuProcess());
-
 
 void SigHandle(int sig)
 {
@@ -146,6 +149,17 @@ inline void dump_lio_state_to_log(FILE *fp)
     fprintf(fp, "%lf %lf %lf ", state_point.grav[0], state_point.grav[1], state_point.grav[2]); // Bias_a  
     fprintf(fp, "\r\n");  
     fflush(fp);
+}
+
+void senor_pointBodyToWorld(PointCloudXYZI::Ptr local, PointCloudXYZI::Ptr world)
+{
+    V3D p_body(local->sensor_origin_[0], local->sensor_origin_[1], local->sensor_origin_[2]);
+    V3D p_global(state_point.rot * (state_point.offset_R_L_I*p_body + state_point.offset_T_L_I) + state_point.pos);
+
+    world->sensor_origin_[0] = p_global(0);
+    world->sensor_origin_[1] = p_global(1);
+    world->sensor_origin_[2] = p_global(2);
+
 }
 
 void pointBodyToWorld_ikfom(PointType const * const pi, PointType * const po, state_ikfom &s)
@@ -679,8 +693,11 @@ public:
 
         memset(point_selected_surf, true, sizeof(point_selected_surf));
         memset(res_last, -1000.0f, sizeof(res_last));
-        downSizeFilterSurf.setLeafSize(filter_size_surf_min, filter_size_surf_min, filter_size_surf_min);
-        downSizeFilterMap.setLeafSize(filter_size_map_min, filter_size_map_min, filter_size_map_min);
+        //downSizeFilterSurf.setLeafSize(filter_size_surf_min, filter_size_surf_min, filter_size_surf_min);
+        uniform_sampling_filter.setRadiusSearch(filter_size_map_min);
+        uniform_sampling_filter_raw.setRadiusSearch(radius_filter_map);
+        //downSizeFilterMap.setLeafSize(filter_size_map_min, filter_size_map_min, filter_size_map_min);
+        
         memset(point_selected_surf, true, sizeof(point_selected_surf));
         memset(res_last, -1000.0f, sizeof(res_last));
 
@@ -759,7 +776,6 @@ private:
         this->declare_parameter<double>("filter_size_surf", 0.5);
         this->declare_parameter<double>("filter_size_map", 0.5);
 
-        this->declare_parameter<double>("filter_radius_filter_map", 0.5);
         this->declare_parameter<double>("radius_filter_map", 0.5);
 
         this->declare_parameter<bool>("publish.filter_map_enable", false);
@@ -797,7 +813,6 @@ private:
         this->get_parameter_or<double>("filter_size_surf", filter_size_surf_min, 0.5);
         this->get_parameter_or<double>("filter_size_map", filter_size_map_min, 0.5);
 
-        this->get_parameter_or<double>("filter_radius_filter_map", filter_radius_filter_map, 0.5);
         this->get_parameter_or<double>("radius_filter_map", radius_filter_map, 0.5);
         this->get_parameter_or<bool>("publish.filter_map_enable", filter_map_enable, false);
 
@@ -856,17 +871,24 @@ private:
         
         feats_down_body->clear();
         /*** downsample the feature points in a scan ***/
-        downSizeFilterSurf.setInputCloud(feats_undistort);
-        downSizeFilterSurf.filter(*feats_down_body);
+        uniform_sampling_filter.setInputCloud(feats_undistort);
+        uniform_sampling_filter.filter(*feats_down_body);
         t1 = omp_get_wtime();
         feats_down_size = feats_down_body->points.size();
 
+        /*** 原始点云转到世界坐标系 ***/
+        PointCloudXYZI::Ptr raw_point_body(new PointCloudXYZI());
         PointCloudXYZI::Ptr raw_point_world(new PointCloudXYZI());
-        raw_point_world->resize(feats_undistort->points.size());
 
-        for(int i = 0; i < feats_undistort->points.size(); i++)
+        uniform_sampling_filter_raw.setInputCloud(feats_undistort);
+        uniform_sampling_filter_raw.filter(*raw_point_body);
+
+        int raw_point_body_size=raw_point_body->points.size();
+        raw_point_world->points.resize(raw_point_body_size);
+        
+        for(int i = 0; i < raw_point_body_size; i++)
         {
-            pointBodyToWorld(&(feats_undistort->points[i]), &(raw_point_world->points[i]));
+            pointBodyToWorld(&(raw_point_body->points[i]), &(raw_point_world->points[i]));
         }
         
         /*** initialize the map ikdtree ***/
@@ -877,14 +899,20 @@ private:
             {
                 ikdtree.set_downsample_param(filter_size_map_min);
                 feats_down_world->resize(feats_down_size);
+
                 for(int i = 0; i < feats_down_size; i++)
                 {
                     pointBodyToWorld(&(feats_down_body->points[i]), &(feats_down_world->points[i]));
                 }
-                ikdtree.Build(feats_down_world->points);
-            }
 
-            featsFromMap_list.push_back(LocalPointLists(lidar_end_time,feats_down_world,raw_point_world));
+                ikdtree.Build(feats_down_world->points);
+
+                feats_down_body->sensor_origin_.x() = state_point.pos(0);
+                feats_down_body->sensor_origin_.y() = state_point.pos(1);
+                feats_down_body->sensor_origin_.z() = state_point.pos(2);
+                down_size_points_list.push_back(PointLists(lidar_end_time, feats_down_world));
+                raw_points_list.push_back(PointLists(lidar_end_time, raw_point_world));
+            }
 
             return;
         }
@@ -936,17 +964,25 @@ private:
         /*** add the feature points to map kdtree ***/
         t3 = omp_get_wtime();
         map_incremental();
-        featsFromMap_list.push_back(LocalPointLists(lidar_end_time,feats_down_world,raw_point_world));
+
+        /*** downsample the feature points in a scan ***/
+
+        feats_down_body->sensor_origin_.x() = state_point.pos(0);
+        feats_down_body->sensor_origin_.y() = state_point.pos(1);
+        feats_down_body->sensor_origin_.z() = state_point.pos(2);
+        down_size_points_list.push_back(PointLists(lidar_end_time, feats_down_world));
+        raw_points_list.push_back(PointLists(lidar_end_time, raw_point_world));
+
         t5 = omp_get_wtime();
         
         /******* Publish points *******/
-        if (path_en)                         publish_path(pubPath_);
-        if (scan_pub_en)      publish_frame_world(pubLaserCloudFull_);
+        if (path_en) publish_path(pubPath_);
+        if (scan_pub_en) publish_frame_world(pubLaserCloudFull_);
         if (scan_pub_en && scan_body_pub_en) publish_frame_body(pubLaserCloudFull_body_);
         if (effect_pub_en) publish_effect_world(pubLaserCloudEffect_);
 
         counters_raw_map++;
-        if (counters_raw_map % 10 == 0)
+        if (counters_raw_map % 100 == 0)
         {
             if (filter_map_enable)
             {
@@ -958,8 +994,6 @@ private:
                 publish_raw_map(pubLaserCloudFilter_);
             }
         }
-
-        
 
         // if (map_pub_en) publish_map(pubLaserCloudMap_);
 
@@ -992,8 +1026,6 @@ private:
             <<" "<<state_point.bg.transpose()<<" "<<state_point.ba.transpose()<<" "<<state_point.grav<<" "<<feats_undistort->points.size()<<endl;
             dump_lio_state_to_log(fp);
         }
-
-        
 
     }
 

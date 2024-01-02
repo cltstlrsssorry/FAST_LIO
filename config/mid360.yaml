@@ -4,8 +4,7 @@
         feature_extract_enable: false
         filter_size_map: 0.1
         filter_size_surf: 0.1
-        filter_radius_filter_map: 0.15
-        radius_filter_map: 0.1
+        radius_filter_map: 0.02
         
         
         common:
@@ -82,14 +81,17 @@
         verbose: false # debug print log etc
 
         Octomap:
-            resolution: 0.02
+            resolution: 0.1
+
             maxRange: -1.0
             minRange: -1.0
-            probHit: 0.7
 
+            probHit: 0.7
             probMiss: 0.4
             thresMin: 0.12
             thresMax: 0.97
+
+            opccupancyThres: 0.7
 
             m_prune: true
 
@@ -99,7 +101,16 @@
             m_groundFilterAngle: 0.15
             m_groundFilterPlaneDistance: 0.15
 
-            filterNoise: false
+            filterNoise: true
 
             filterMeanK: 50
             StddevMulThresh: 1.0
+
+        publishmap:
+            size: 0.02
+        
+        segment:
+            segment_en: true
+            publish_map_en: true
+
+
