@@ -15,6 +15,11 @@ Panels:
         - /OccupancyGrid1
         - /SegmentMap1
         - /SegmentMap1/Topic1
+        - /Centroid1
+        - /PCA_X1
+        - /PCA_Y1
+        - /PCA_Z1
+        - /changed1
       Splitter Ratio: 0.5020325183868408
     Tree Height: 719
   - Class: rviz_common/Selection
@@ -312,7 +317,7 @@ Visualization Manager:
       Max Color: 255; 255; 255
       Max Intensity: 2.026599168777466
       Min Color: 0; 0; 0
-      Min Intensity: -0.3064846992492676
+      Min Intensity: -0.32083794474601746
       Name: OctoMap
       Position Transformer: XYZ
       Selectable: true
@@ -349,8 +354,8 @@ Visualization Manager:
     - Alpha: 1
       Autocompute Intensity Bounds: true
       Autocompute Value Bounds:
-        Max Value: 2.026599168777466
-        Min Value: -0.3214002251625061
+        Max Value: 2.0042881965637207
+        Min Value: -0.32340437173843384
         Value: true
       Axis: Z
       Channel Name: intensity
@@ -377,6 +382,134 @@ Visualization Manager:
         History Policy: Keep Last
         Reliability Policy: Reliable
         Value: /publish_segment
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz_default_plugins/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: Intensity
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 0
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: Centroid
+      Position Transformer: XYZ
+      Selectable: true
+      Size (Pixels): 10
+      Size (m): 0.5
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /publish_conteroid
+      Use Fixed Frame: true
+      Use rainbow: true
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: rviz_default_plugins/Pose
+      Color: 28; 113; 216
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: PCA_X
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Arrow
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /publish_pca_X
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: rviz_default_plugins/Pose
+      Color: 245; 194; 17
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: PCA_Y
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Arrow
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /publish_pca_Y
+      Value: true
+    - Alpha: 1
+      Axes Length: 1
+      Axes Radius: 0.10000000149011612
+      Class: rviz_default_plugins/Pose
+      Color: 255; 25; 0
+      Enabled: true
+      Head Length: 0.30000001192092896
+      Head Radius: 0.10000000149011612
+      Name: PCA_Z
+      Shaft Length: 1
+      Shaft Radius: 0.05000000074505806
+      Shape: Arrow
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /publish_pca_Z
+      Value: true
+    - Alpha: 1
+      Autocompute Intensity Bounds: true
+      Autocompute Value Bounds:
+        Max Value: 10
+        Min Value: -10
+        Value: true
+      Axis: Z
+      Channel Name: intensity
+      Class: rviz_default_plugins/PointCloud2
+      Color: 255; 255; 255
+      Color Transformer: Intensity
+      Decay Time: 0
+      Enabled: true
+      Invert Rainbow: false
+      Max Color: 255; 255; 255
+      Max Intensity: 190
+      Min Color: 0; 0; 0
+      Min Intensity: 0
+      Name: changed
+      Position Transformer: XYZ
+      Selectable: true
+      Size (Pixels): 10
+      Size (m): 0.009999999776482582
+      Style: Points
+      Topic:
+        Depth: 5
+        Durability Policy: Volatile
+        Filter size: 10
+        History Policy: Keep Last
+        Reliability Policy: Reliable
+        Value: /changed_points
       Use Fixed Frame: true
       Use rainbow: true
       Value: true
@@ -434,14 +567,14 @@ Visualization Manager:
       Invert Z Axis: false
       Name: Current View
       Near Clip Distance: 0.009999999776482582
-      Pitch: -0.002153662033379078
+      Pitch: 0.9897969961166382
       Position:
-        X: 1.0012383460998535
-        Y: 1.3155887126922607
-        Z: 1.0813149213790894
+        X: -0.03433257341384888
+        Y: 3.3117523193359375
+        Z: 7.208968162536621
       Target Frame: <Fixed Frame>
       Value: FPS (rviz_default_plugins)
-      Yaw: 4.1711106300354
+      Yaw: 5.191124439239502
     Saved: ~
 Window Geometry:
   Displays:

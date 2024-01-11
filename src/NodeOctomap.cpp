@@ -42,7 +42,7 @@ NodeOctomap::NodeOctomap(const std::string & name):Node(name, rclcpp::NodeOption
 
 void NodeOctomap::timer_callback()
 {
-    if (!down_size_points_list.empty()) 
+    if (!wait_octomap_points_list.empty()) 
     {
         updateOccupancy();
         if (count % 10 == 0)
@@ -56,133 +56,30 @@ void NodeOctomap::timer_callback()
 
 void NodeOctomap::updateOccupancy()
 {
-    PointCloudXYZI::Ptr single_pc = down_size_points_list.begin()->points;
-    timestamp = down_size_points_list.begin()->time;
-    down_size_points_list.pop_front();
+    PointCloudXYZI::Ptr single_pc = wait_octomap_points_list.begin()->points;
+
+    timestamp = wait_octomap_points_list.begin()->time;
+
+    wait_octomap_points_list.pop_front();
 
     if (single_pc->empty()) return;
+
     if (single_pc->points.size() < 50) return;
 
     Eigen::Vector4f sensor_pos = single_pc->sensor_origin_;
 
-    PointCloudXYZI::Ptr cloud_filtered(new PointCloudXYZI);
-    if (config.filterNoise)
-    {
-        pcl::StatisticalOutlierRemoval<PointType> sor(true); // 创建一个新的 StatisticalOutlierRemoval 对象，用于进行统计离群值移除。
-        sor.setInputCloud(single_pc);                        // 设置输入的点云。
-        sor.setMeanK(config.filterMeanK);                    // 设置用于计算每个点的平均距离的邻居数量。
-        sor.setStddevMulThresh(config.StddevMulThresh);      // 设置标准差乘数阈值，这是决定一个点是否为离群值的阈值。
-        sor.filter(*cloud_filtered);                         // 进行过滤，结果将存储在 cloud_filtered 中。
-
-        auto noise_indices = sor.getRemovedIndices(); // 获取被移除的点的索引。
-
-        noise_cloud->clear(); // 清空 noise_cloud。
-
-        // 创建一个新的 ExtractIndices 对象，用于提取索引。
-        /**
-        pcl::ExtractIndices<PointType> eifilter(false); // Initializing with true will allow us to extract the removed indices
-        eifilter.setInputCloud(single_pc);              // 设置输入的点云。
-        eifilter.setIndices(noise_indices);             // 设置要提取的索引。
-        eifilter.filter(*noise_cloud);                  // 进行提取，结果将存储在 noise_cloud 中。
-        */
-
-    }
-    else
-    {
-        std::vector<int> indices;
-        pcl::removeNaNFromPointCloud(*single_pc, *cloud_filtered, indices);
-    }
-
     octomap::point3d sensor_origin(sensor_pos.x(), sensor_pos.y(), sensor_pos.z());
+
     if (!m_octree->coordToKeyChecked(sensor_origin, m_updateBBXMin) || !m_octree->coordToKeyChecked(sensor_origin, m_updateBBXMax))
     {
         RCLCPP_INFO(this->get_logger(), "Could not generate Key for origin: %f, %f, %f", sensor_origin.x(), sensor_origin.y(), sensor_origin.z());
     }
 
-    PointCloudXYZI::Ptr pc_nonground(new PointCloudXYZI);
-    PointCloudXYZI::Ptr pc_ground(new PointCloudXYZI);
-    if (config.filterGroundPlane)
-    {
-        filterGroundPlane(cloud_filtered, pc_ground, pc_nonground);
-    }
-    else
-    {
-        pc_nonground = cloud_filtered;
-    }
 
     // instead of direct scan insertion, compute update to filter ground:
     octomap::KeySet free_cells, occupied_cells;
 
-    // step A: insert ground points only as free so that we will not get false obstacles in ground pts
-    for (PointCloudXYZI::const_iterator it = pc_ground->begin(); it != pc_ground->end(); ++it)
-    {
-        octomap::point3d point(it->x, it->y, it->z);
-
-        if ((config.minRange > 0.0) && (point - sensor_origin).norm() < config.minRange)
-            continue;
-
-        // maxrange check
-        if ((config.maxRange > 0.0) && ((point - sensor_origin).norm() > config.maxRange))
-        {
-            point = sensor_origin + (point - sensor_origin).normalized() * config.maxRange;
-        }
-
-        // only clear space (ground points)
-        // 计算从传感器原点到当前点的射线经过的所有网格的键，并将这些键存储在 m_keyRay 中。
-        // 如果计算成功，那么这些键会被添加到 free_cells 集合中，表示这些网格是空闲的。
-        if (m_octree->computeRayKeys(sensor_origin, point, m_keyRay))
-        {
-            free_cells.insert(m_keyRay.begin(), m_keyRay.end());
-        }
-
-        octomap::OcTreeKey endKey;
-        if (m_octree->coordToKeyChecked(point, endKey))
-        {
-            updateMinKey(endKey, m_updateBBXMin);
-            updateMaxKey(endKey, m_updateBBXMax);
-        }
-        else
-        {
-            if (config.verbose)
-                RCLCPP_INFO(this->get_logger(), "Could not generate Key for endpoint ");
-            // LOG_IF(WARNING, cfg_.verbose_) << "Could not generate Key for endpoint " << point;
-        }
-    }
-
-    if (pc_ground->size() > 0)
-    {
-        RCLCPP_INFO(this->get_logger(), "Ground points: %ld", pc_ground->size());
-        *ground_pts += *pc_ground;
-    }
-
-    // noise directly to occupied, no need ray for them
-    if(0)
-    {
-        for (PointCloudXYZI::const_iterator it = noise_cloud->begin(); it != noise_cloud->end(); ++it)
-        {
-            octomap::point3d point(it->x, it->y, it->z);
-
-            if ((config.minRange > 0) && (point - sensor_origin).norm() < config.minRange)
-                continue;
-
-            // maxrange check
-            if ((config.maxRange > 0.0) && ((point - sensor_origin).norm() > config.maxRange))
-            {
-                point = sensor_origin + (point - sensor_origin).normalized() * config.maxRange;
-            }
-
-            octomap::OcTreeKey endKey;
-            if (m_octree->coordToKeyChecked(point, endKey))
-            {
-                occupied_cells.insert(endKey);
-                updateMinKey(endKey, m_updateBBXMin);
-                updateMaxKey(endKey, m_updateBBXMax);
-            }
-        }
-    }
-
-
-    for (PointCloudXYZI::const_iterator it = pc_nonground->begin(); it != pc_nonground->end(); ++it)
+    for (PointCloudXYZI::const_iterator it = single_pc->begin(); it != single_pc->end(); ++it)
     {
         octomap::point3d point(it->x, it->y, it->z);
 
@@ -246,8 +143,8 @@ void NodeOctomap::updateOccupancy()
         m_octree->updateNode(*it, true);
     }
 
-    if (config.m_prune)
-        m_octree->prune();
+    if (config.m_prune) m_octree->prune();
+    
 }
 
 void NodeOctomap::publishOctomap()

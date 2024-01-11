@@ -5,13 +5,13 @@
 #include <chrono>
 #include <unistd.h>
 
+#include <rclcpp/rclcpp.hpp>
+
 #include <octomap/octomap.h>
 #include <octomap_msgs/msg/octomap.hpp>
 #include <octomap_msgs/conversions.h>
 
-#include <rclcpp/rclcpp.hpp>
-
-#include<fastlio.h>
+#include <fastlio.h>
 
 #include <pcl/point_cloud.h>
 #include <pcl/filters/statistical_outlier_removal.h>
@@ -31,9 +31,7 @@ public:
     // 析构函数
     ~NodeOctomap()=default;
 
-
 private:
-
     rclcpp::TimerBase::SharedPtr timer_cre;
 
     rclcpp::Publisher<octomap_msgs::msg::Octomap>::SharedPtr publish_octomap;
@@ -81,6 +79,4 @@ protected:
         max[i] = std::max(in[i], max[i]);
     };
 
-
-    
 };

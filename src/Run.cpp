@@ -3,8 +3,10 @@
 //#include "NodeCloudSegment.h"
 //#include "NodeERASOR.h"
 #include "NodeOctomap.h"
-#include "NodePublishMap.h"
+#include "NodeFilterDynamic.h"
 #include "NodeSegment.h"
+#include "NodePCA.h"
+#include "NodeCloudCompare.h"
 
 int main(int argc, char** argv)
 {
@@ -16,9 +18,11 @@ int main(int argc, char** argv)
     auto laserReg=std::make_shared<LaserMappingNode>("laserReg");
     //auto dynfilter=std::make_shared<NodeERASOR>("dynfilter");
     auto octomap=std::make_shared<NodeOctomap>("octomap");
-    auto publishmap=std::make_shared<NodePublishMap>("publishmap");
+    auto publishmap=std::make_shared<NodeFilterDynamic>("publishmap");
     // auto laserSeg=std::make_shared<NodeCloudSegment>("laserSeg");
     auto laserSeg=std::make_shared<NodeSegment>("laserSeg");
+    auto laserPCA=std::make_shared<NodePCA>("laserPCA");
+    auto laserCC=std::make_shared<NodeCloudCompare>("laserCC");
 
     executor.add_node(cloudprocess);
     executor.add_node(laserReg);
@@ -27,6 +31,8 @@ int main(int argc, char** argv)
     // executor.add_node(laserSeg);
     executor.add_node(publishmap);
     executor.add_node(laserSeg);
+    executor.add_node(laserPCA);
+    executor.add_node(laserCC);
 
     executor.spin();
 
@@ -35,7 +41,7 @@ int main(int argc, char** argv)
         rclcpp::shutdown();
 
         raw_points_list.clear();
-        down_size_points_list.clear();
+        wait_octomap_points_list.clear();
         time_buffer.clear();
         lidar_buffer.clear();
         imu_buffer.clear();

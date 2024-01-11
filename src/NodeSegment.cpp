@@ -8,10 +8,6 @@ NodeSegment::NodeSegment(const std::string & name):Node(name, rclcpp::NodeOption
     
     uniformed_map_ptr_=PointCloudXYZI::Ptr(new PointCloudXYZI());
 
-    filter_dynamic_map_ptr_=PointCloudXYZI::Ptr(new PointCloudXYZI());
-
-    segment_map.reset(new PointCloudXYZI());
-
     pubLaserCloudMap = this->create_publisher<sensor_msgs::msg::PointCloud2>("/publish_segment", 20);
 
     auto timer_seg = std::chrono::milliseconds(static_cast<int64_t>(1000.0));
@@ -34,33 +30,26 @@ void NodeSegment::getConfig()
 
 void NodeSegment::timer_callback()
 {
-    if(!config.segment_en) return;
+    if(!config.segment_en) return;   
 
-    if(filter_dynamic_map.points->empty()) return;
-
-    std::cout << "1" << std::endl;
-    filter_dynamic_map_ptr_ = filter_dynamic_map.points;
-    std::cout << "filter_dynamic_map_ptr_ size: " <<filter_dynamic_map_ptr_->points.size()<< std::endl;
-    timestamp = filter_dynamic_map.time;
-
-    std::cout << "3" << std::endl;
+    if(filter_dynamic_map.empty()) return;
+ 
+    PointCloudXYZI::Ptr filter_dynamic_map_ptr_ = filter_dynamic_map.begin()->points;
+    double timestamp = filter_dynamic_map.begin()->time;
+    filter_dynamic_map.pop_front();
 
     // 点云分割
     pcl::search::KdTree<PointType>::Ptr tree(new pcl::search::KdTree<PointType>); // kd树对象
     tree->setInputCloud(filter_dynamic_map_ptr_);
 
-    std::cout << "4" << std::endl;
-
     std::vector<pcl::PointIndices> clusters;
     pcl::EuclideanClusterExtraction<PointType> ec; // 创建欧式聚类分割对象
     ec.setClusterTolerance(0.1);                       // 设置近邻搜索的搜索半径
-    ec.setMinClusterSize(1000);                         // 设置最小聚类尺寸
+    ec.setMinClusterSize(5000);                         // 设置最小聚类尺寸
     ec.setMaxClusterSize(1000000);                      // 设置最大聚类尺寸
     ec.setSearchMethod(tree);
     ec.setInputCloud(filter_dynamic_map_ptr_);
     ec.extract(clusters);
-
-    std::cout << "5" << std::endl;
 
     int maxnum=0;
     pcl::PointIndices Max_clusters;
@@ -72,28 +61,26 @@ void NodeSegment::timer_callback()
             Max_clusters = *it;
         }
     }
-    
-    segment_map->clear();
+
+    PointCloudXYZI::Ptr segment_map_ptr_=PointCloudXYZI::Ptr(new PointCloudXYZI());
     for (std::vector<int>::const_iterator pit = Max_clusters.indices.begin(); pit != Max_clusters.indices.end(); pit++)
-        segment_map->points.push_back(filter_dynamic_map_ptr_->points[*pit]);
+        segment_map_ptr_->points.push_back(filter_dynamic_map_ptr_->points[*pit]);
     
-    segment_map->width = segment_map->points.size();
-    segment_map->height = 1;
-    segment_map->is_dense = true;
+    segment_map_ptr_->width = segment_map_ptr_->points.size();
+    segment_map_ptr_->height = 1;
+    segment_map_ptr_->is_dense = true;
 
     if (config.publish_map_en)
     {
         sensor_msgs::msg::PointCloud2 laserCloudmsg;
-        pcl::toROSMsg(*segment_map, laserCloudmsg);
+        pcl::toROSMsg(*segment_map_ptr_, laserCloudmsg);
 
         laserCloudmsg.header.stamp = get_ros_time(timestamp);
         laserCloudmsg.header.frame_id = "camera_init";
         pubLaserCloudMap->publish(laserCloudmsg);
     }
 
-    std::cout << "7" << std::endl;
-
-    segment_map->clear();
+    segment_map.push_back(PointLists(timestamp,segment_map_ptr_));
 }
 
 void NodeSegment::VoxelPointCloud(PointCloudXYZI::Ptr &cloud, PointCloudXYZI::Ptr &cloud_voxelized, double leaf_size)

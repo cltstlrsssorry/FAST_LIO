@@ -41,11 +41,6 @@ private:
 
     Segment_Config config;
 
-    PointCloudXYZI::Ptr filter_dynamic_map_ptr_;
-
     PointCloudXYZI::Ptr uniformed_map_ptr_;
-
-    double timestamp;
-    
     
 };

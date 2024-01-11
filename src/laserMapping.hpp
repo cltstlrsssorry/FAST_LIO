@@ -503,6 +503,7 @@ void publish_odometry(const rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPt
     odomAftMapped.header.stamp = get_ros_time(lidar_end_time);
     set_posestamp(odomAftMapped.pose);
     pubOdomAftMapped->publish(odomAftMapped);
+    
     auto P = kf.get_P();
     for (int i = 0; i < 6; i ++)
     {
@@ -910,7 +911,7 @@ private:
                 feats_down_body->sensor_origin_.x() = state_point.pos(0);
                 feats_down_body->sensor_origin_.y() = state_point.pos(1);
                 feats_down_body->sensor_origin_.z() = state_point.pos(2);
-                down_size_points_list.push_back(PointLists(lidar_end_time, feats_down_world));
+                wait_octomap_points_list.push_back(PointLists(lidar_end_time, feats_down_world));
                 raw_points_list.push_back(PointLists(lidar_end_time, raw_point_world));
             }
 
@@ -970,7 +971,7 @@ private:
         feats_down_body->sensor_origin_.x() = state_point.pos(0);
         feats_down_body->sensor_origin_.y() = state_point.pos(1);
         feats_down_body->sensor_origin_.z() = state_point.pos(2);
-        down_size_points_list.push_back(PointLists(lidar_end_time, feats_down_world));
+        wait_octomap_points_list.push_back(PointLists(lidar_end_time, feats_down_world));
         raw_points_list.push_back(PointLists(lidar_end_time, raw_point_world));
 
         t5 = omp_get_wtime();

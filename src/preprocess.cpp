@@ -3,14 +3,14 @@
 #define RETURN0 0x00
 #define RETURN0AND1 0x10
 
-  orgtype::orgtype()
-  {
-    range = 0;
-    edj[Prev] = Nr_nor;
-    edj[Next] = Nr_nor;
-    ftype = Nor;
-    intersect = 2;
-  }
+orgtype::orgtype()
+{
+  range = 0;
+  edj[Prev] = Nr_nor;
+  edj[Next] = Nr_nor;
+  ftype = Nor;
+  intersect = 2;
+}
 
 Preprocess::Preprocess() : feature_enabled(0), lidar_type(AVIA), blind(0.01), point_filter_num(1)
 {
@@ -129,6 +129,7 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
   {
     for (uint i = 1; i < plsize; i++)
     {
+
       if ((msg->points[i].line < N_SCANS) && ((msg->points[i].tag & 0x30) == 0x10 || (msg->points[i].tag & 0x30) == 0x00))
       {
         pl_full[i].x = msg->points[i].x;
@@ -148,6 +149,7 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
         }
 
       }
+
     }
 
     static int count = 0;
@@ -188,8 +190,6 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
       {
         if (valid_num % point_filter_num == 0)
         {
-          valid_num++;
-
           pl_full[i].x = msg->points[i].x;
           pl_full[i].y = msg->points[i].y;
           pl_full[i].z = msg->points[i].z;
@@ -210,8 +210,10 @@ void Preprocess::avia_handler(const livox_ros_driver2::msg::CustomMsg::UniquePtr
               pl_surf.push_back(pl_full[i]);
             }
           }
-
         }
+
+        valid_num++;
+        
       }
     }
 
