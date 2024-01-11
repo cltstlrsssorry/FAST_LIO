@@ -125,9 +125,12 @@ add_executable(fastlio_mapping
   src/NodeSegment.cpp
   # src/NodeERASOR.cpp
   src/NodeOctomap.cpp
-  src/NodePublishMap.cpp
+  src/NodeFilterDynamic.cpp
+  src/NodePCA.cpp
+  src/NodeCloudCompare.cpp
 
   src/Run.cpp
+  
   )
 
 

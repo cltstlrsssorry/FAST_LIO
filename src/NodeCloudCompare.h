@@ -1,4 +1,4 @@
-#include<fastlio.h>
+#include <fastlio.h>
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -11,51 +11,48 @@
 
 struct CONFIG
 {
-        float resolution;
-        
-        float radius;
+    float resolution;
 
-        float clusterTolerance;
+    float radius;
 
-        int minClusterSize;
+    float clusterTolerance;
 
-        int maxClusterSize;
+    int minClusterSize;
+
+    int maxClusterSize;
 };
 
 class NodeCloudCompare : public rclcpp::Node
 {
-        
+
 public:
+    NodeCloudCompare(const std::string &name);
 
-        NodeCloudCompare(const std::string & name);
-
-        // 析构函数
-        ~NodeCloudCompare()=default;
+    // 析构函数
+    ~NodeCloudCompare() = default;
 
 private:
+    bool inited;
 
-        bool inited;
+    double timestamp;
 
-        double timestamp;
+    CONFIG config;
 
-        CONFIG config;
-        
-        PointCloudXYZI::Ptr last_cloud;
+    PointCloudXYZI::Ptr last_cloud;
 
-        PointCloudXYZI::Ptr curr_cloud;
-        
-        pcl::octree::OctreePointCloudChangeDetector<PointType>::Ptr octree_detect;
-        
-        rclcpp::TimerBase::SharedPtr timer_cre;
+    PointCloudXYZI::Ptr curr_cloud;
 
-        rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr changed_points_pub;
-        
-        void setConfig();
-        
-        void timer_callback();
+    pcl::octree::OctreePointCloudChangeDetector<PointType>::Ptr octree_detect;
 
-        void get_changed_points(PointCloudXYZI::Ptr &in_cloud, PointCloudXYZI::Ptr &out_cloud);
+    rclcpp::TimerBase::SharedPtr timer_cre;
 
-        void get_collection_changed_points(PointCloudXYZI::Ptr &in_cloud, PointCloudXYZI::Ptr &out_cloud);
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr changed_points_pub;
 
+    void setConfig();
+
+    void timer_callback();
+
+    void get_changed_points(PointCloudXYZI::Ptr &in_cloud, PointCloudXYZI::Ptr &out_cloud);
+
+    void get_collection_changed_points(PointCloudXYZI::Ptr &in_cloud, PointCloudXYZI::Ptr &out_cloud);
 };

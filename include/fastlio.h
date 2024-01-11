@@ -116,6 +116,7 @@ struct Segment_Config
 struct PointLists
 {
     double time;
+
     PointCloudXYZI::Ptr points;
 
     PointLists();
@@ -132,6 +133,13 @@ extern std::deque<PointLists> down_size_points_list;
 
 //nodepublishmap
 extern std::deque<PointLists> raw_points_list;
+
+extern std::deque<PointLists> segment_map;
+
+extern std::deque<PointLists> filter_dynamic_map;
+
+extern std::deque<PointLists> filter_dynamic_map_PCA;
+
 
 //nodepublishmap
 extern PointLists filter_dynamic_map;

@@ -2,13 +2,15 @@
 
 PointCloudXYZI::Ptr featsFromMap(new PointCloudXYZI());
 
-PointCloudXYZI::Ptr segment_map(new PointCloudXYZI());
-
 std::deque<PointLists> down_size_points_list;
 
 std::deque<PointLists> raw_points_list;
 
-PointLists filter_dynamic_map;
+std::deque<PointLists> segment_map;
+
+std::deque<PointLists> filter_dynamic_map;
+
+std::deque<PointLists> filter_dynamic_map_PCA;
 
 octomap::OcTree* m_octree;
 
