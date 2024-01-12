@@ -18,6 +18,8 @@
 #define ANSI_RESET "\x1b[0m"
 #define ANSI_BOLD "\033[1m"
 
+#define ROOT_DIR "@ ROOT_DIR @"
+
 typedef pcl::PointXYZINormal PointType;
 
 typedef pcl::PointCloud<PointType> PointCloudXYZI;
