@@ -19,6 +19,7 @@
 #define ANSI_BOLD "\033[1m"
 
 typedef pcl::PointXYZINormal PointType;
+
 typedef pcl::PointCloud<PointType> PointCloudXYZI;
 
 struct ERASOR_Config
@@ -56,9 +57,7 @@ struct ERASOR_Config
     double tf_z = 0.0;
 
     bool is_large_scale_ = false;
-    
 };
-
 
 struct Octomap_Config
 {
@@ -104,13 +103,11 @@ struct Octomap_Config
     bool verbose;
 };
 
-
 struct Segment_Config
 {
     bool segment_en;
     bool publish_map_en;
     double uniform_size;
-
 };
 
 struct PointLists
@@ -126,12 +123,10 @@ struct PointLists
 
 extern PointCloudXYZI::Ptr featsFromMap;
 
-extern PointCloudXYZI::Ptr segment_map;
-
-//nodeoctomap
+// nodeoctomap
 extern std::deque<PointLists> down_size_points_list;
 
-//nodepublishmap
+// nodepublishmap
 extern std::deque<PointLists> raw_points_list;
 
 extern std::deque<PointLists> segment_map;
@@ -140,21 +135,19 @@ extern std::deque<PointLists> filter_dynamic_map;
 
 extern std::deque<PointLists> filter_dynamic_map_PCA;
 
-
-//nodepublishmap
-extern PointLists filter_dynamic_map;
+extern std::deque<PointLists> wait_octomap_points_list;
 
 extern std::deque<double> time_buffer;
 extern std::deque<PointCloudXYZI::Ptr> lidar_buffer;
 extern std::deque<sensor_msgs::msg::Imu::ConstSharedPtr> imu_buffer;
 
-extern double last_timestamp_lidar, last_timestamp_imu ;
+extern double last_timestamp_lidar, last_timestamp_imu;
 
 double get_time_sec(const builtin_interfaces::msg::Time &time);
 
 rclcpp::Time get_ros_time(double timestamp);
 
-//for octomap
-extern octomap::OcTree* m_octree;
+// for octomap
+extern octomap::OcTree *m_octree;
 
 #endif

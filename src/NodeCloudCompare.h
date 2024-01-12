@@ -8,6 +8,7 @@
 #include <pcl/octree/octree_pointcloud_changedetector.h>
 #include <pcl/search/kdtree.h>
 #include <pcl/segmentation/extract_clusters.h>
+#include <pcl/filters/uniform_sampling.h>
 
 struct CONFIG
 {
@@ -21,6 +22,8 @@ struct CONFIG
 
     int maxClusterSize;
 };
+
+float distance[10000][720];
 
 class NodeCloudCompare : public rclcpp::Node
 {
@@ -55,4 +58,7 @@ private:
     void get_changed_points(PointCloudXYZI::Ptr &in_cloud, PointCloudXYZI::Ptr &out_cloud);
 
     void get_collection_changed_points(PointCloudXYZI::Ptr &in_cloud, PointCloudXYZI::Ptr &out_cloud);
+
+    void getAngle();
+  
 };

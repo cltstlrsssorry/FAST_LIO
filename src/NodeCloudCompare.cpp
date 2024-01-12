@@ -16,7 +16,7 @@ NodeCloudCompare::NodeCloudCompare(const std::string &name) : Node(name, rclcpp:
 
     changed_points_pub = this->create_publisher<sensor_msgs::msg::PointCloud2>("changed_points", 10);
 
-    auto timer = std::chrono::milliseconds(static_cast<int64_t>(1000.0));
+    auto timer = std::chrono::milliseconds(static_cast<int64_t>(2000.0));
 
     timer_cre = rclcpp::create_timer(this, this->get_clock(), timer, std::bind(&NodeCloudCompare::timer_callback, this));
 
@@ -141,18 +141,19 @@ void NodeCloudCompare::get_collection_changed_points(PointCloudXYZI::Ptr &in_clo
 
         for (PointCloudXYZI::iterator it = cloud_cluster->begin(); it != cloud_cluster->end(); it++)
         {
-            if (num > 10 && num < 200)
+
+            for (int i = 0; i < indices.size(); i++)
             {
-                for (int i = 0; i < indices.size(); i++)
-                {
-                    PointType point = last_cloud->points[indices[i]];
-                    out_cloud->push_back(point);
-                }
+                PointType point = last_cloud->points[indices[i]];
+                out_cloud->push_back(point);
             }
-            else
-            {
-                continue;
-            }
+
         }
     }
+}
+
+void NodeCloudCompare::getAngle()
+{
+    
+
 }

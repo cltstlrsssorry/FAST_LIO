@@ -14,6 +14,8 @@
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
 
+#define PI 3.1415926
+
 class NodePCA : public rclcpp::Node
 {
 public:

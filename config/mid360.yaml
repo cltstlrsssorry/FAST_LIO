@@ -119,10 +119,10 @@
         
         cloudcompare:
             resolution: 0.1
-            radius: 0.1
-            clusterTolerance: 0.2
+            radius: 0.05
+            clusterTolerance: 0.1
             minClusterSize: 10
-            maxClusterSize: 100
+            maxClusterSize: 200
 
 
 
