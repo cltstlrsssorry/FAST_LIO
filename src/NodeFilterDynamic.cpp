@@ -46,7 +46,7 @@ void NodeFilterDynamic::timer_callback()
     if (publish_count % 50 == 0)
     {
         PointCloudXYZI::Ptr temp_points_ptr(new PointCloudXYZI());
-        PointCloudXYZI::Ptr temp_points_pca_ptr(new PointCloudXYZI());
+        
 
         for (auto &pt : raw_map_ptr_->points)
         {
@@ -71,9 +71,18 @@ void NodeFilterDynamic::timer_callback()
 
         if (filter_dynamic_map_PCA.empty())
         {
+            PointCloudXYZI::Ptr temp_points_pca_ptr(new PointCloudXYZI());
             pcl::copyPointCloud(*temp_points_ptr, *temp_points_pca_ptr);
             filter_dynamic_map_PCA.push_back(PointLists(timestamp, temp_points_pca_ptr));
         }
+
+        if (filter_dynamic_map_triangle.empty())
+        {
+            PointCloudXYZI::Ptr temp_points_triangle_ptr(new PointCloudXYZI());
+            pcl::copyPointCloud(*temp_points_ptr, *temp_points_triangle_ptr);
+            filter_dynamic_map_triangle.push_back(PointLists(timestamp, temp_points_triangle_ptr));
+        }
+
 
         // 发布点云
         if (publish_map_en)

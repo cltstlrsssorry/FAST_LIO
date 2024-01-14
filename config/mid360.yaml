@@ -78,7 +78,7 @@
         tf:
             lidar2body: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0] # xyz q_x, q_y, q_z, q_w in order
         
-        verbose: false # debug print log etc
+        verbose: true # debug print log etc
 
         Octomap:
             resolution: 0.1

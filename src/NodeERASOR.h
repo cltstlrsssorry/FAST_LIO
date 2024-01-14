@@ -37,6 +37,42 @@
 #define NUM_PTS_LARGE_ENOUGH 200000
 #define NUM_PTS_LARGE_ENOUGH_FOR_MAP 20000000
 
+struct CONFIG_ERASOR
+{
+    /**< Parameters of MapUpdater*/
+    double map_voxel_size_ = 0.2;
+    double query_voxel_size_ = 0.2;
+    int global_voxelization_period_;
+
+    /**< Params. of Volume of Interest (VoI) */
+    double max_range_;
+    int num_rings_, num_sectors_;
+    double min_h_, max_h_;
+    double scan_ratio_threshold;
+
+    double submap_size_;
+    double submap_center_x_;
+    double submap_center_y_;
+
+    double th_seeds_heights_ = 0.5;
+    double th_dist_ = 0.05;
+    int num_lprs_ = 10;
+    int minimum_num_pts = 6;
+    int iter_groundfilter_ = 3;
+    int num_lowest_pts = 5;
+    bool verbose_ = true; // print out logs
+
+    std::string mode = "naive";
+    bool replace_intensity = false;
+    int removal_interval_ = 2;
+
+    // tf lidar to body
+    double tf_x = 0.0;
+    double tf_y = 0.0;
+    double tf_z = 0.0;
+
+    bool is_large_scale_ = false;
+};
 
 class NodeERASOR : public rclcpp::Node
 {
@@ -49,7 +85,8 @@ public:
 
 private:
 
-    ERASOR_Config cfg;
+    CONFIG_ERASOR cfg;
+    
     ERASOR erasor;
 
     rclcpp::TimerBase::SharedPtr timer_cre1;
@@ -85,7 +122,7 @@ private:
 
     void VoxelPointCloud(const PointCloudXYZI::Ptr &cloud, PointCloudXYZI::Ptr &cloud_voxelized, const double voxel_size);
 
-    const ERASOR_Config getCfg();
+    const CONFIG_ERASOR getCfg();
 
     void timer1_callback();
 

@@ -10,7 +10,7 @@
 #include <pcl/segmentation/extract_clusters.h>
 #include <pcl/filters/uniform_sampling.h>
 
-struct CONFIG
+struct CONFIG_CLOUDCOMPARE
 {
     float resolution;
 
@@ -23,8 +23,6 @@ struct CONFIG
     int maxClusterSize;
 };
 
-float distance[10000][720];
-
 class NodeCloudCompare : public rclcpp::Node
 {
 
@@ -35,11 +33,14 @@ public:
     ~NodeCloudCompare() = default;
 
 private:
+
+    double distances[100000][720];
+
     bool inited;
 
     double timestamp;
 
-    CONFIG config;
+    CONFIG_CLOUDCOMPARE config;
 
     PointCloudXYZI::Ptr last_cloud;
 

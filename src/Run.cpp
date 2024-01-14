@@ -7,6 +7,7 @@
 #include "NodeSegment.h"
 #include "NodePCA.h"
 #include "NodeCloudCompare.h"
+#include "NodeReconstruction.h"
 
 int main(int argc, char** argv)
 {
@@ -23,6 +24,7 @@ int main(int argc, char** argv)
     auto laserSeg=std::make_shared<NodeSegment>("laserSeg");
     auto laserPCA=std::make_shared<NodePCA>("laserPCA");
     auto laserCC=std::make_shared<NodeCloudCompare>("laserCC");
+    auto lasertriangles=std::make_shared<NodeReconstruction>("triangles");
 
     executor.add_node(cloudprocess);
     executor.add_node(laserReg);
@@ -33,6 +35,7 @@ int main(int argc, char** argv)
     executor.add_node(laserSeg);
     executor.add_node(laserPCA);
     executor.add_node(laserCC);
+    executor.add_node(lasertriangles);
 
     executor.spin();
 
@@ -47,6 +50,12 @@ int main(int argc, char** argv)
         imu_buffer.clear();
 
         m_octree->clear();
+    }
+    
+    // 等待直到可视化窗口关闭
+    while (!viewer->wasStopped())
+    {
+        viewer->spinOnce();
     }
 
     return 0;

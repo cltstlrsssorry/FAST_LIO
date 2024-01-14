@@ -15,7 +15,12 @@
 
 #include <fastlio.h>
 
-using namespace std;
+struct CONFIG
+{
+    bool segment_en;
+    bool publish_map_en;
+    double uniform_size;
+};
 
 class NodeSegment : public rclcpp::Node
 {
@@ -39,7 +44,7 @@ private:
 
     rclcpp::TimerBase::SharedPtr reg_map_pub_timer_;
 
-    Segment_Config config;
+    CONFIG config;
 
     PointCloudXYZI::Ptr uniformed_map_ptr_;
     

@@ -41,7 +41,6 @@
 #define MAXN                (720000)
 #define PUBFRAME_PERIOD     (20)
 
-
 /*** Time Log Variables ***/
 double kdtree_incremental_time = 0.0, kdtree_search_time = 0.0, kdtree_delete_time = 0.0;
 double T1[MAXN], s_plot[MAXN], s_plot2[MAXN], s_plot3[MAXN], s_plot4[MAXN], s_plot5[MAXN], s_plot6[MAXN], s_plot7[MAXN], s_plot8[MAXN], s_plot9[MAXN], s_plot10[MAXN], s_plot11[MAXN];
@@ -52,6 +51,7 @@ bool   runtime_pos_log = false, pcd_save_en = false, time_sync_en = false, extri
 
 float res_last[100000] = {0.0};
 float DET_RANGE = 300.0f;
+
 const float MOV_THRESHOLD = 1.5f;
 double time_diff_lidar_to_imu = 0.0;
 

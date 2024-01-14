@@ -12,6 +12,8 @@ std::deque<PointLists> filter_dynamic_map;
 
 std::deque<PointLists> filter_dynamic_map_PCA;
 
+std::deque<PointLists> filter_dynamic_map_triangle;
+
 std::deque<PointLists> wait_octomap_points_list;
 
 octomap::OcTree* m_octree;

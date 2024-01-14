@@ -9,14 +9,7 @@ endif()
 ADD_COMPILE_OPTIONS(-std=c++14) # 为编译添加C++14标准选项
 set(CMAKE_CXX_FLAGS "-std=c++14 -O3") # 设置C++编译flags
 
-set(ROOT_DIR ${CMAKE_SOURCE_DIR})
-add_definitions(-DROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/") # 为项目添加宏定义
-
 cmake_policy(SET CMP0074 NEW) 
-
-
-# add_definitions(-DROOT_DIR="${ROOT_DIR}")
-# add_compile_definitions(ROOT_DIR="${ROOT_DIR}")
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fexceptions") # 为C编译添加异常处理选项
 set(CMAKE_CXX_STANDARD 14) # 设置C++标准为14
@@ -92,7 +85,6 @@ set(dependencies
 find_package(Eigen3 REQUIRED) # 查找Eigen库
 find_package(PCL REQUIRED COMPONENTS common io) # 查找PCL库
 
-
 message(Eigen: ${EIGEN3_INCLUDE_DIR}) # 输出Eigen包含路径
 message(STATUS "PCL: ${PCL_INCLUDE_DIRS}") # 输出PCL包含路径
 
@@ -100,6 +92,12 @@ message(STATUS "PCL: ${PCL_INCLUDE_DIRS}") # 输出PCL包含路径
 set(msg_files
   "msg/Pose6D.msg"
 )
+
+set(ROOT_DIR ${CMAKE_SOURCE_DIR})
+# add_definitions(-D ROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}//") # 为项目添加宏定义
+add_compile_definitions(ROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/")
+# add_definitions(-D ROOT_DIR="${CMAKE_CURRENT_SOURCE_DIR}/") # 为项目添加宏定义
+# add_definitions(-DROOT_DIR="${ROOT_DIR}")
 
 # 为项目生成ROS消息接口
 rosidl_generate_interfaces(${PROJECT_NAME} ${msg_files})
@@ -116,10 +114,10 @@ add_executable(fastlio_mapping
 
   src/IMU_Processing.cpp
   src/preprocess.cpp
-
-  src/ERASOR/ERASOR.cpp
-  src/segment/pointsCorrect.cpp 
-  src/segment/segment.cpp
+  
+  # src/ERASOR/ERASOR.cpp
+  # src/segment/pointsCorrect.cpp 
+  # src/segment/segment.cpp
 
   src/NodePreProcess.cpp 
   src/NodeSegment.cpp
@@ -128,10 +126,11 @@ add_executable(fastlio_mapping
   src/NodeFilterDynamic.cpp
   src/NodePCA.cpp
   src/NodeCloudCompare.cpp
+  src/NodeReconstruction.cpp
 
   src/Run.cpp
   
-  )
+)
 
 
 
