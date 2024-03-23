@@ -2,8 +2,8 @@
     ros__parameters:
         map_file_path: "./test.pcd"
         feature_extract_enable: false
-        filter_size_map: 0.1
-        filter_size_surf: 0.1
+        filter_size_map: 0.05
+        filter_size_surf: 0.5
         radius_filter_map: 0.02
         
         
@@ -27,7 +27,7 @@
             b_acc_cov: 0.0001 # 加速度计偏差
             b_gyr_cov: 0.0001 # 陀螺仪偏差 
             fov_degree:    360.0 # 视场角
-            det_range:     260.0 #检测范围
+            det_range:     60.0 #检测范围
             extrinsic_est_en: true      # true: enable the online estimation of IMU-LiDAR extrinsic
             #  参数代表 IMU 和 LiDAR 之间外参校准的平移向量和旋转矩阵。
             extrinsic_T: [ -0.011, -0.02329, 0.04412 ]
@@ -42,8 +42,8 @@
 
         publish:
             path_en: true                # true: publish Path
-            effect_map_en: false         # true: publish Effects
-            map_en: false                 # true: publish Map cloud
+            effect_map_en: true         # true: publish Effects
+            map_en: true                 # true: publish Map cloud
             scan_publish_en: true       # false: close all the point cloud output
             dense_publish_en: true      # false: low down the points number in a global-frame point clouds scan.
             scan_bodyframe_pub_en: true  # true: output the point cloud scans in IMU-body-frame
@@ -78,20 +78,20 @@
         tf:
             lidar2body: [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0] # xyz q_x, q_y, q_z, q_w in order
         
-        verbose: true # debug print log etc
+        verbose: false # debug print log etc
 
         Octomap:
             resolution: 0.1
 
-            maxRange: -1.0
-            minRange: -1.0
+            maxRange: 10.0
+            minRange: 0.1
 
             probHit: 0.7
             probMiss: 0.4
             thresMin: 0.12
             thresMax: 0.97
 
-            opccupancyThres: 0.7
+            occupancyThres: 0.7
 
             m_prune: true
 

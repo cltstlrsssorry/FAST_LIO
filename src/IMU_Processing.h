@@ -103,14 +103,14 @@ private:
     // 声明一个成员变量类型为std::deque<sensor_msgs::msg::Imu::ConstSharedPtr>
     deque<sensor_msgs::msg::Imu::ConstSharedPtr> v_imu_;
 
-    vector<Pose6D> IMUpose;
+    vector<Pose6D> IMUpose;//IMU的位姿
     vector<M3D> v_rot_pcl_;
-    M3D Lidar_R_wrt_IMU;
-    V3D Lidar_T_wrt_IMU;
-    V3D mean_acc;
-    V3D mean_gyr;
-    V3D angvel_last;
-    V3D acc_s_last;
+    M3D Lidar_R_wrt_IMU;//激光雷达相对于IMU的旋转矩阵
+    V3D Lidar_T_wrt_IMU;//激光雷达相对于IMU的平移向量
+    V3D mean_acc;//加速度计的均值
+    V3D mean_gyr;//陀螺仪的均值
+    V3D angvel_last;//上一时刻的角速度
+    V3D acc_s_last;//上一时刻的加速度计的比例因子
 
     double start_timestamp_;
     double last_lidar_end_time_;

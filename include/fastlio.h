@@ -9,7 +9,7 @@
 
 #include <octomap/octomap.h>
 
-#include <pcl/visualization/pcl_visualizer.h>
+#include <pcl/surface/gp3.h>
 
 #define ANSI_RED "\033[1m\x1b[31m"
 #define ANSI_GREEN "\033[1m\x1b[32m"
@@ -65,7 +65,5 @@ rclcpp::Time get_ros_time(double timestamp);
 
 // for octomap
 extern octomap::OcTree *m_octree;
-
-extern pcl::visualization::PCLVisualizer::Ptr viewer;
 
 #endif

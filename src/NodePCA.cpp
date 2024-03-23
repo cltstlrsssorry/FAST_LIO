@@ -5,11 +5,9 @@ NodePCA::NodePCA(const std::string & name):Node(name, rclcpp::NodeOptions().use_
 
     RCLCPP_INFO(this->get_logger(), "----NodePCA----");
 
+    pca_cloud_ptr_.reset(new PointCloudXYZI());
+
     setConfig();
-
-    count = 1;
-
-    inited = false;
 
     pubLasercentroid = this->create_publisher<sensor_msgs::msg::PointCloud2>("/publish_conteroid", 20);
     pubLaserPCA_X = this->create_publisher<geometry_msgs::msg::PoseStamped>("/publish_pca_X", 20);
@@ -24,18 +22,14 @@ NodePCA::NodePCA(const std::string & name):Node(name, rclcpp::NodeOptions().use_
 
 void NodePCA::timer_callback()
 {
-    if(filter_dynamic_map_PCA.empty()) return;
+    sub_pca=this->create_subscription<sensor_msgs::msg::PointCloud2>("/publish_filter_dynamic_map", 20, std::bind(&NodePCA::cloud_callback, this, std::placeholders::_1));
 
-    if(inited) return;
-
-    PointCloudXYZI::Ptr temp_cloud = filter_dynamic_map_PCA.begin()->points;
-    timestamp = filter_dynamic_map_PCA.begin()->time;
-    filter_dynamic_map_PCA.pop_front();
+    if(pca_cloud_ptr_->empty()) return;
 
     Eigen::Vector4f pcaCentroid;
-    pcl::compute3DCentroid(*temp_cloud, pcaCentroid);//计算点云质心
+    pcl::compute3DCentroid(*pca_cloud_ptr_, pcaCentroid);//计算点云质心
     Eigen::Matrix3f covariance;
-    pcl::computeCovarianceMatrixNormalized(*temp_cloud, pcaCentroid, covariance);//计算目标点云协方差矩阵
+    pcl::computeCovarianceMatrixNormalized(*pca_cloud_ptr_, pcaCentroid, covariance);//计算目标点云协方差矩阵
 
     Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> eigen_solver(covariance, Eigen::ComputeEigenvectors);//构造一个特定的自伴随矩阵类便于后续分解
     Eigen::Matrix3f eigenVectorsPCA = eigen_solver.eigenvectors();//计算特征向量
@@ -63,25 +57,31 @@ void NodePCA::timer_callback()
 	pcX(0) = 1000 * eigenVectorsPCA(0, 0) + c(0);
 	pcX(1) = 1000 * eigenVectorsPCA(1, 0) + c(1);
 	pcX(2) = 1000 * eigenVectorsPCA(2, 0) + c(2);
-    VectorToQuaternionf(c, pcX, timestamp, pubLaserPCA_X);
+    VectorToQuaternionf(c, pcX, pubLaserPCA_X);
 
 	Eigen::Vector3f pcY;
 	pcY(0) = 1000 * eigenVectorsPCA(0, 1) + c(0);
 	pcY(1) = 1000 * eigenVectorsPCA(1, 1) + c(1);
 	pcY(2) = 1000 * eigenVectorsPCA(2, 1) + c(2);
-    VectorToQuaternionf(c, pcY, timestamp, pubLaserPCA_Y);
+    VectorToQuaternionf(c, pcY, pubLaserPCA_Y);
 
 	Eigen::Vector3f pcZ;
 	pcZ(0) = 1000 * eigenVectorsPCA(0, 2) + c(0);
 	pcZ(1) = 1000 * eigenVectorsPCA(1, 2) + c(1);
 	pcZ(2) = 1000 * eigenVectorsPCA(2, 2) + c(2);
-    VectorToQuaternionf(c, pcZ, timestamp, pubLaserPCA_Z);
+    VectorToQuaternionf(c, pcZ, pubLaserPCA_Z);
 
     sensor_msgs::msg::PointCloud2 laserCloudmsg;
     pcl::toROSMsg(centeroid, laserCloudmsg);
-    laserCloudmsg.header.stamp = get_ros_time(timestamp);
+    laserCloudmsg.header.stamp = timestamp;
     laserCloudmsg.header.frame_id = "camera_init";
     pubLasercentroid->publish(laserCloudmsg);
+}
+
+void NodePCA::cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg)
+{
+    timestamp = msg->header.stamp;
+    pcl::fromROSMsg(*msg, *pca_cloud_ptr_);
 }
 
 void NodePCA::setConfig()
@@ -94,11 +94,10 @@ void NodePCA::setConfig()
 
 void NodePCA::VectorToQuaternionf(Eigen::Vector3f &pos, 
                                     Eigen::Vector3f &vector,
-                                    double timestamp, 
                                     rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pubLaserPCA)
 {
     geometry_msgs::msg::PoseStamped::SharedPtr pca_pose(new geometry_msgs::msg::PoseStamped);
-    pca_pose->header.stamp = get_ros_time(timestamp);
+    pca_pose->header.stamp = timestamp;
     pca_pose->header.frame_id = "camera_init";
 
     float rxx = vector(0) * PI / 180;

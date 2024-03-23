@@ -9,6 +9,7 @@ typedef MTK::S2<double, 98090, 10000, 1> S2;
 typedef MTK::vect<1, double> vect1;
 typedef MTK::vect<2, double> vect2;
 
+// state_ikfom: 24
 MTK_BUILD_MANIFOLD(state_ikfom,
 ((vect3, pos))
 ((SO3, rot))
@@ -20,11 +21,13 @@ MTK_BUILD_MANIFOLD(state_ikfom,
 ((S2, grav))
 );
 
+// input_ikfom: 12
 MTK_BUILD_MANIFOLD(input_ikfom,
 ((vect3, acc))
 ((vect3, gyro))
 );
 
+// process_noise_ikfom: 12
 MTK_BUILD_MANIFOLD(process_noise_ikfom,
 ((vect3, ng))
 ((vect3, na))

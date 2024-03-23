@@ -9,12 +9,15 @@
 #include "NodeCloudCompare.h"
 #include "NodeReconstruction.h"
 
+#include <pcl/visualization/pcl_visualizer.h>
+
 int main(int argc, char** argv)
 {
     rclcpp::init(argc, argv);
 
-    rclcpp::executors::MultiThreadedExecutor executor;
-
+    int thread_num=std::thread::hardware_concurrency();
+    rclcpp::executors::MultiThreadedExecutor multi_executor(rclcpp::ExecutorOptions(), thread_num-3);
+    
     auto cloudprocess=std::make_shared<NodeCloudProcess>("cloudprocess");
     auto laserReg=std::make_shared<LaserMappingNode>("laserReg");
     //auto dynfilter=std::make_shared<NodeERASOR>("dynfilter");
@@ -26,23 +29,28 @@ int main(int argc, char** argv)
     auto laserCC=std::make_shared<NodeCloudCompare>("laserCC");
     auto lasertriangles=std::make_shared<NodeReconstruction>("triangles");
 
-    executor.add_node(cloudprocess);
-    executor.add_node(laserReg);
+    multi_executor.add_node(cloudprocess);
+    multi_executor.add_node(laserReg);
     //executor.add_node(dynfilter);
-    executor.add_node(octomap);
+    multi_executor.add_node(octomap);
     // executor.add_node(laserSeg);
-    executor.add_node(publishmap);
-    executor.add_node(laserSeg);
-    executor.add_node(laserPCA);
-    executor.add_node(laserCC);
-    executor.add_node(lasertriangles);
+    multi_executor.add_node(publishmap);
+    multi_executor.add_node(laserSeg);
+    multi_executor.add_node(laserPCA);
+    multi_executor.add_node(laserCC);
+    multi_executor.add_node(lasertriangles);
 
-    executor.spin();
+    multi_executor.spin();
 
-    if (rclcpp::ok())
+    /**
+    while(rclcpp::ok())
     {
-        rclcpp::shutdown();
+        multi_executor.spin_some();
+    }
+    */
 
+    if(rclcpp::shutdown())
+    {
         raw_points_list.clear();
         wait_octomap_points_list.clear();
         time_buffer.clear();
@@ -50,12 +58,6 @@ int main(int argc, char** argv)
         imu_buffer.clear();
 
         m_octree->clear();
-    }
-    
-    // 等待直到可视化窗口关闭
-    while (!viewer->wasStopped())
-    {
-        viewer->spinOnce();
     }
 
     return 0;

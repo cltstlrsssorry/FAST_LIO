@@ -27,9 +27,10 @@ NodeOctomap::NodeOctomap(const std::string &name) : Node(name, rclcpp::NodeOptio
     // 设置了一个网格被认为是占用的概率阈值。如果一个网格的占用概率高于这个值，那么它就被认为是占用的。
     m_octree->setClampingThresMax(config.thresMax);
 
-    m_octree->setOccupancyThres(config.opccupancyThres);
+    m_octree->setOccupancyThres(config.occupancyThres);
 
     m_maxTreeDepth = m_treeDepth;
+    
     ground_pts.reset(new PointCloudXYZI);
     noise_cloud.reset(new PointCloudXYZI);
     raw_map_ptr_.reset(new PointCloudXYZI);
@@ -113,6 +114,8 @@ void NodeOctomap::updateOccupancy()
         }
         else
         {
+            continue;
+            
             octomap::point3d new_end = sensor_origin + (point - sensor_origin).normalized() * config.maxRange;
 
             if (m_octree->computeRayKeys(sensor_origin, new_end, m_keyRay))
@@ -146,6 +149,7 @@ void NodeOctomap::updateOccupancy()
 
     if (config.m_prune)
         m_octree->prune();
+    
 }
 
 void NodeOctomap::publishOctomap()
@@ -171,7 +175,7 @@ void NodeOctomap::setConfig()
     this->declare_parameter<float>("Octomap.thresMin", 0.12);
     this->declare_parameter<float>("Octomap.thresMax", 0.97);
 
-    this->declare_parameter<float>("Octomap.opccupancyThres", 0.7);
+    this->declare_parameter<float>("Octomap.occupancyThres", 0.7);
 
     this->declare_parameter<bool>("Octomap.m_prune", true);
     this->declare_parameter<bool>("verbose", false);
@@ -194,7 +198,7 @@ void NodeOctomap::setConfig()
     this->get_parameter_or<float>("Octomap.thresMin", config.thresMin, 0.12);
     this->get_parameter_or<float>("Octomap.thresMax", config.thresMax, 0.97);
 
-    this->get_parameter_or<float>("Octomap.opccupancyThres", config.opccupancyThres, 0.7);
+    this->get_parameter_or<float>("Octomap.occupancyThres", config.occupancyThres, 0.7);
 
     this->get_parameter_or<bool>("Octomap.m_prune", config.m_prune, true);
     this->get_parameter_or<bool>("verbose", config.verbose, false);

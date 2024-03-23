@@ -10,7 +10,7 @@ NodeFilterDynamic::NodeFilterDynamic(const std::string &name) : Node(name, rclcp
 
     getConfig();
 
-    Octomap_publisher = this->create_publisher<sensor_msgs::msg::PointCloud2>("/publish_down_dynamic_map", 10);
+    Octomap_publisher = this->create_publisher<sensor_msgs::msg::PointCloud2>("/publish_filter_dynamic_map", 10);
 
     auto timer = std::chrono::milliseconds(static_cast<int64_t>(1000.0 / 100.0));
 
@@ -68,21 +68,6 @@ void NodeFilterDynamic::timer_callback()
         raw_map_ptr_->clear();
         pcl::copyPointCloud(*temp_points_ptr, *raw_map_ptr_);
         filter_dynamic_map.push_back(PointLists(timestamp, temp_points_ptr));
-
-        if (filter_dynamic_map_PCA.empty())
-        {
-            PointCloudXYZI::Ptr temp_points_pca_ptr(new PointCloudXYZI());
-            pcl::copyPointCloud(*temp_points_ptr, *temp_points_pca_ptr);
-            filter_dynamic_map_PCA.push_back(PointLists(timestamp, temp_points_pca_ptr));
-        }
-
-        if (filter_dynamic_map_triangle.empty())
-        {
-            PointCloudXYZI::Ptr temp_points_triangle_ptr(new PointCloudXYZI());
-            pcl::copyPointCloud(*temp_points_ptr, *temp_points_triangle_ptr);
-            filter_dynamic_map_triangle.push_back(PointLists(timestamp, temp_points_triangle_ptr));
-        }
-
 
         // 发布点云
         if (publish_map_en)

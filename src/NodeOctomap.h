@@ -48,7 +48,7 @@ struct CONFIG_OCTO
     float thresMin;
     float thresMax;
 
-    float opccupancyThres;
+    float occupancyThres;
 
     // hether prune tree
     bool m_prune;
@@ -79,6 +79,8 @@ private:
     rclcpp::TimerBase::SharedPtr timer_cre;
 
     rclcpp::Publisher<octomap_msgs::msg::Octomap>::SharedPtr publish_octomap;
+
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_octomap;
 
     double timestamp;
 

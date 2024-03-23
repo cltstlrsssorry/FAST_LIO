@@ -26,7 +26,7 @@ public:
 
 private:
 
-    double timestamp;
+    builtin_interfaces::msg::Time timestamp;
 
     int count,inited;
 
@@ -35,6 +35,10 @@ private:
     void setConfig();
 
     void timer_callback();
+
+    PointCloudXYZI::Ptr pca_cloud_ptr_;
+
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_pca;
 
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pubLasercentroid;
 
@@ -46,8 +50,9 @@ private:
 
     void VectorToQuaternionf(Eigen::Vector3f &pos, 
                                 Eigen::Vector3f &vector,
-                                double timestamp, 
                                 rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pubLaserPCA);
+
+    void cloud_callback(const sensor_msgs::msg::PointCloud2::SharedPtr msg);
 
 
 };

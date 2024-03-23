@@ -132,8 +132,6 @@ add_executable(fastlio_mapping
   
 )
 
-
-
 # 设置fastlio_mapping的公共头文件目录
 target_include_directories(fastlio_mapping PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
