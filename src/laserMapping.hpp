@@ -462,7 +462,7 @@ void publish_effect_world(rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::Shar
 
     for (int i = 0; i < effct_feat_num; i++)
     {
-        cout << "effct_feat_num: " << effct_feat_num << endl;
+        // cout << "effct_feat_num: " << effct_feat_num << endl;
 
         RGBpointBodyToWorld(&laserCloudOri->points[i], &laserCloudWorld->points[i]);
     }
